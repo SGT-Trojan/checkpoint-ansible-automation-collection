@@ -18,6 +18,7 @@ perform a firewall update or upgrade.
 - Exact-build reconciliation, reacquisition planning, and member sequencing
 - Evidence composition and final two-member completion attestation
 - Fail-closed lease, commit, plan, artifact, member, and TLS execution preflight
+- Preflight-gated controller-local content-addressed artifact staging
 - Synthetic completion and tamper-rejection integration tests
 - CI checks for supported vendor contracts and prohibited execution paths
 
@@ -27,7 +28,7 @@ exception. Strict certificate validation remains pending.
 
 ## Not Yet Available
 
-- Deployment Agent package staging or fixed update transport
+- Deployment Agent package transport to a firewall or fixed update transport
 - CDT candidate generation or execution
 - Management API package installation or upgrade
 - Direct CPUSE fallback
@@ -42,11 +43,14 @@ shell, command, raw, or script tasks for unsupported vendor APIs.
 
 ## Current Boundary
 
-The Deployment Agent chain now includes a transport-free execution preflight.
-A returned plan or preflight authorization does not perform or independently
-authorize a live update. Future execution still requires separately reviewed
-artifact staging and fixed transport, repeated lease checks, bounded polling,
-and post-update build verification.
+The Deployment Agent chain now includes controller-local artifact staging
+behind the execution preflight. Staging revalidates the source on a retained
+descriptor, repeats lease expiry checks around its bounded filesystem
+mutation, and publishes a read-only content-addressed copy. It performs no
+firewall request. A returned plan, preflight authorization, or staged path does
+not perform or independently authorize a live update. Future execution still
+requires separately reviewed firewall transport, repeated lease checks,
+bounded polling, and post-update build verification.
 
 See [Deployment Agent](docs/DEPLOYMENT_AGENT.md) for the module contracts,
 [Workflow parity](docs/PARITY_MATRIX.md) for full scope, and

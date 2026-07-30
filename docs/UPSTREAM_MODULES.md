@@ -38,7 +38,7 @@ verified dependency graph can be reproduced exactly.
 | Installed packages and restore capacity | `cp_gaia_features_facts`, Gaia HTTPAPI `send_request` helper | `checkpoint_package_state_acquisition` inventory binding, fixed `cp_automation_package_state_acquire` operation, and strict recognized-format/capacity parsing |
 | Deployment Agent | Gaia HTTPAPI `send_request` helper; no dedicated resource module in the pinned collections | Inventory-bound `checkpoint_deployment_agent_observation`, fixed `cp_automation_deployment_agent_acquire`, numeric build decision, offline package binding, update, reconnect, and reconciliation |
 | Gaia reboot | `cp_gaia_run_reboot`, `cp_gaia_task_facts` | Check-mode block, timeout, reconnect, and health samples |
-| Gaia file creation | `cp_gaia_put_file` | Text only; large package staging remains custom |
+| Gaia file creation | `cp_gaia_put_file` | Text only; not used for binary Deployment Agent packages |
 
 Package transport remains pending. Before transport is introduced,
 `cp_automation_package_validate` provides the offline, structured contract for
@@ -70,6 +70,9 @@ acquisition is provided by `cp_automation_deployment_agent_acquire`.
 two-member lease and direct Gaia inventory. Offline package binding, update
 planning, reacquisition planning, reconciliation, evidence, and completion
 attestation are available. Live update execution remains pending.
+Controller-local content-addressed artifact staging is available behind the
+execution preflight. The released `cp_gaia_put_file` text-content contract is
+not sufficient for this binary package, so firewall transport remains pending.
 
 ## Safety Limits
 

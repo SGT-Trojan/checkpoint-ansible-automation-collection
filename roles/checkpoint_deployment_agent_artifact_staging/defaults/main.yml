@@ -1,0 +1,10 @@
+---
+checkpoint_deployment_agent_staging_lease: {}
+checkpoint_deployment_agent_staging_update_plan: {}
+checkpoint_deployment_agent_staging_member_target_id: ""
+checkpoint_deployment_agent_staging_member_address: ""
+checkpoint_deployment_agent_staging_member_targets: []
+checkpoint_deployment_agent_staging_runtime_commit: ""
+checkpoint_deployment_agent_staging_tls_validation_enabled: true
+checkpoint_deployment_agent_staging_lab_tls_exception_acknowledged: false
+checkpoint_deployment_agent_staging_root: ""

@@ -1,0 +1,65 @@
+---
+- name: Validate controller-local Deployment Agent staging inputs
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == "localhost"
+      - >-
+        hostvars["localhost"].ansible_connection | default("local")
+        in ["local", "ansible.builtin.local"]
+      - >-
+        ansible_connection | default("local")
+        in ["local", "ansible.builtin.local"]
+      - >-
+        hostvars["localhost"].ansible_host | default("localhost")
+        in ["localhost", "127.0.0.1", "::1"]
+      - >-
+        ansible_host | default("localhost")
+        in ["localhost", "127.0.0.1", "::1"]
+      - checkpoint_deployment_agent_staging_lease is mapping
+      - checkpoint_deployment_agent_staging_update_plan is mapping
+      - checkpoint_deployment_agent_staging_member_target_id is string
+      - checkpoint_deployment_agent_staging_member_target_id | trim | length > 0
+      - checkpoint_deployment_agent_staging_member_address is string
+      - checkpoint_deployment_agent_staging_member_address | trim | length > 0
+      - checkpoint_deployment_agent_staging_member_targets is sequence
+      - checkpoint_deployment_agent_staging_member_targets is not string
+      - checkpoint_deployment_agent_staging_runtime_commit is string
+      - checkpoint_deployment_agent_staging_runtime_commit | length == 40
+      - checkpoint_deployment_agent_staging_tls_validation_enabled is boolean
+      - >-
+        checkpoint_deployment_agent_staging_lab_tls_exception_acknowledged
+        is boolean
+      - checkpoint_deployment_agent_staging_root is string
+      - checkpoint_deployment_agent_staging_root | trim | length > 0
+    fail_msg: >-
+      Artifact staging requires genuine localhost and explicit preflight-bound
+      plan, member, commit, TLS, and staging-directory inputs.
+
+- name: Preflight and stage one exact Deployment Agent artifact
+  sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_artifact_stage:
+    lease: "{{ checkpoint_deployment_agent_staging_lease }}"
+    update_plan: "{{ checkpoint_deployment_agent_staging_update_plan }}"
+    member_target_id: >-
+      {{ checkpoint_deployment_agent_staging_member_target_id }}
+    member_address: "{{ checkpoint_deployment_agent_staging_member_address }}"
+    member_targets: "{{ checkpoint_deployment_agent_staging_member_targets }}"
+    runtime_commit: "{{ checkpoint_deployment_agent_staging_runtime_commit }}"
+    tls_validation_enabled: >-
+      {{ checkpoint_deployment_agent_staging_tls_validation_enabled }}
+    lab_tls_exception_acknowledged: >-
+      {{
+        checkpoint_deployment_agent_staging_lab_tls_exception_acknowledged
+      }}
+    staging_root: "{{ checkpoint_deployment_agent_staging_root }}"
+  register: checkpoint_deployment_agent_staging_result
+  delegate_to: localhost
+  connection: ansible.builtin.local
+  become: false
+
+- name: Publish sanitized Deployment Agent staging evidence
+  ansible.builtin.set_fact:
+    checkpoint_deployment_agent_staging: >-
+      {{ checkpoint_deployment_agent_staging_result.staging }}
+    checkpoint_deployment_agent_staging_authorization: >-
+      {{ checkpoint_deployment_agent_staging_result.authorization }}
+  changed_when: false

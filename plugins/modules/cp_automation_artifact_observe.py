@@ -27,8 +27,8 @@ description:
     the path. A mutating consumer must reobserve immediately before use and
     hash and consume the retained descriptor, or atomically stage and consume
     an immutable content-addressed copy.
-  - Requires POSIX/Linux-style O_DIRECTORY, O_NOFOLLOW, O_CLOEXEC, O_NONBLOCK,
-    and directory-relative open support on the controller.
+  - Requires Linux-style O_PATH, O_DIRECTORY, O_NOFOLLOW, O_CLOEXEC,
+    O_NONBLOCK, and directory-relative open support on the controller.
   - Returns no file content, performs no network request, and makes no changes.
   - Must be invoked through the localhost-pinned artifact observation role.
 options:
