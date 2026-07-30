@@ -20,6 +20,9 @@ class CollectionLayoutTests(unittest.TestCase):
         self.assertEqual(
             galaxy["dependencies"]["check_point.gaia"], ">=7.0.0,<8.0.0"
         )
+        self.assertEqual(
+            galaxy["dependencies"]["ansible.netcommon"], ">=8.6.0,<9.0.0"
+        )
 
         requirements = yaml.safe_load((ROOT / "requirements.yml").read_text())
         versions = {
@@ -27,6 +30,8 @@ class CollectionLayoutTests(unittest.TestCase):
         }
         self.assertEqual(versions["check_point.mgmt"], "6.9.0")
         self.assertEqual(versions["check_point.gaia"], "7.0.0")
+        self.assertEqual(versions["ansible.netcommon"], "8.6.0")
+        self.assertEqual(versions["ansible.utils"], "6.0.3")
 
     def test_required_public_documents_exist(self) -> None:
         for relative in (
@@ -38,15 +43,56 @@ class CollectionLayoutTests(unittest.TestCase):
             "docs/UPSTREAM_MODULES.md",
             "docs/MANAGED_TARGET_DISCOVERY.md",
             "docs/CLUSTER_READINESS.md",
+            "docs/DEPLOYMENT_AGENT.md",
             "docs/LIVE_READONLY_EXECUTOR.md",
             "docs/PACKAGE_VALIDATION.md",
             "docs/PACKAGE_ACQUISITION.md",
+            "roles/checkpoint_deployment_agent_completion/defaults/main.yml",
+            "roles/checkpoint_deployment_agent_completion/tasks/main.yml",
             "tests/utils/verify_live_readonly_graph.py",
             "tests/utils/verify_mgmt_check_mode.py",
             "tests/utils/verify_collection_policy.py",
+            "tests/utils/run_deployment_agent_completion_focus.py",
             "tests/utils/verify_package_inventory_capability.py",
             "examples/managed_target_inventory.yml",
             "examples/managed_target_vars.yml",
+            "examples/package_state_inventory.yml",
+            "examples/deployment_agent_inventory.yml",
+            "playbooks/live_readonly_deployment_agent.yml",
+            "tests/integration/deployment_agent_observation_syntax.yml",
+            "tests/integration/deployment_agent_completion_composition.yml",
+            "tests/integration/deployment_agent_completion_syntax.yml",
+            "tests/integration/deployment_agent_package_binding.yml",
+            "tests/integration/deployment_agent_package_composition.yml",
+            "tests/integration/package_state_acquisition_syntax.yml",
+            "plugins/modules/cp_automation_deployment_agent_package_bind.py",
+            "plugins/modules/cp_automation_deployment_agent_completion.py",
+            "plugins/modules/cp_automation_deployment_agent_evidence.py",
+            "plugins/modules/cp_automation_deployment_agent_next_plan.py",
+            "plugins/modules/cp_automation_deployment_agent_reacquire_plan.py",
+            "plugins/modules/cp_automation_deployment_agent_reconcile.py",
+            "plugins/modules/cp_automation_deployment_agent_update_plan.py",
+            "plugins/module_utils/deployment_agent_package.py",
+            "plugins/module_utils/deployment_agent_completion.py",
+            "plugins/module_utils/deployment_agent_evidence.py",
+            "plugins/module_utils/deployment_agent_next.py",
+            "plugins/module_utils/deployment_agent_reacquire.py",
+            "plugins/module_utils/deployment_agent_reconcile.py",
+            "plugins/module_utils/deployment_agent_update.py",
+            "tests/unit/plugins/module_utils/test_deployment_agent_reconcile.py",
+            "tests/unit/plugins/module_utils/test_deployment_agent_completion.py",
+            "tests/unit/plugins/module_utils/test_deployment_agent_evidence.py",
+            "tests/unit/plugins/module_utils/test_deployment_agent_next.py",
+            "tests/unit/plugins/module_utils/test_deployment_agent_reacquire.py",
+            "tests/unit/plugins/module_utils/test_deployment_agent_update.py",
+            "tests/unit/plugins/modules/test_deployment_agent_reconcile_module.py",
+            "tests/unit/plugins/modules/test_deployment_agent_completion_module.py",
+            "tests/unit/plugins/modules/test_deployment_agent_evidence_module.py",
+            "tests/unit/plugins/modules/test_deployment_agent_next_plan_module.py",
+            "tests/unit/plugins/modules/test_deployment_agent_reacquire_plan_module.py",
+            "tests/unit/plugins/modules/test_deployment_agent_update_plan_module.py",
+            "tests/unit/test_deployment_agent_completion_role.py",
+            "tests/unit/test_deployment_agent_completion_focus.py",
         ):
             self.assertTrue((ROOT / relative).is_file(), relative)
 
@@ -123,10 +169,14 @@ class CollectionLayoutTests(unittest.TestCase):
                 for token in forbidden:
                     self.assertNotIn(token, content, str(path))
 
-    def test_readiness_acquisition_has_no_local_execution_escape_hatch(self) -> None:
+    def test_gaia_acquisition_has_no_local_execution_escape_hatch(self) -> None:
         paths = (
             ROOT / "plugins" / "modules" / "cp_automation_readiness_acquire.py",
             ROOT / "plugins" / "module_utils" / "readiness_acquisition.py",
+            ROOT / "plugins" / "modules" / "cp_automation_package_state_acquire.py",
+            ROOT / "plugins" / "module_utils" / "package_state_acquisition.py",
+            ROOT / "plugins" / "modules" / "cp_automation_deployment_agent_acquire.py",
+            ROOT / "plugins" / "module_utils" / "deployment_agent_acquisition.py",
         )
         forbidden = (
             "import subprocess",

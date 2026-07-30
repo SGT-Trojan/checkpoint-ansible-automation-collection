@@ -1,18 +1,24 @@
 # Constrained Live Read-Only Executor
 
-`playbooks/live_readonly_managed_discovery.yml` is the only live entry point
-currently supplied by this collection. Its first play runs on localhost and
-must complete `checkpoint_live_readonly_preflight` before the imported managed
-discovery can make a Management API request.
+The collection supplies two live read-only entry points:
 
-The executor does not authorize Gaia readiness acquisition yet. No Gaia request
-belongs in this executor until its credential requirements and inventory
-binding receive the same offline coverage.
+- `playbooks/live_readonly_managed_discovery.yml` for Management API discovery.
+- `playbooks/live_readonly_package_state.yml` for installed-package inventory
+  and restore-point free capacity on exactly two Gaia members.
+
+Both require Ansible check mode and a separate short-lived lease. The
+package-state executor runs members serially and rechecks its lease immediately
+before Gaia feature discovery and again before the fixed observation request.
+The fixed operation rejects submissions and poll responses that cross the
+validated lease expiry.
+It cannot accept a command, script, path, package action, or mutation option.
+
+The executor does not authorize Gaia readiness acquisition yet.
 
 ## Safety boundary
 
-The preflight module performs no network request and accepts no credential
-value. It requires all of these conditions:
+The managed-discovery preflight module performs no network request and accepts
+no credential value. It requires all of these conditions:
 
 - Ansible is running with `--check`.
 - The lease has exactly the documented fields, a UUIDv4, `managed_discovery`
@@ -35,17 +41,98 @@ count, and a SHA-256 target fingerprint. It does not return addresses or
 credential data.
 Failure uses stable categories: `LEASE_INVALID`, `LEASE_EXPIRED`,
 `TARGET_INVALID`, `TARGET_MISMATCH`, `CREDENTIALS_INVALID`,
-or `MUTATION_BLOCKED`.
+`MUTATION_BLOCKED`, or `TARGET_PROXY_UNSUPPORTED`.
 
 The lease is a short-lived operational interlock, not a replacement for
 workstation access control, Ansible Vault, API least privilege, or change
 approval.
 
-The current executor certifies the username/password inventory path only.
+The current executors certify username/password inventory paths only.
 API-key authentication remains fail-closed until it has a separate
 credential-presence contract and offline coverage.
 
-## Runtime lease
+## Package-state lease
+
+Keep this lease in an ignored local variable file. Its target set must
+match the two `ansible_host` values in
+`checkpoint_package_state_members` exactly:
+
+```yaml
+checkpoint_package_state_live_lease:
+  lease_id: 63c53f94-319d-444a-8c43-ec2584bcf985
+  issued_at: "2026-07-29T12:00:00Z"
+  expires_at: "2026-07-29T12:10:00Z"
+  operation: package_state_observation
+  execution_mode: read_only
+  tls_validation_mode: strict
+  member_targets:
+    - 198.51.100.10
+    - 198.51.100.11
+
+checkpoint_package_state_step_name: example-package-step
+```
+
+Run only the leased entry point:
+
+```bash
+ansible-playbook --check \
+  playbooks/live_readonly_package_state.yml \
+  -i inventory.local.yml \
+  -e @lease.local.yml
+```
+
+The inventory aliases become validator target IDs, so they must match the
+`target_ids` in the package step. Credentials stay in inventory or Vault. The
+preflight receives only two literal booleans stating whether the trimmed Gaia
+username and secret are populated. Inventory must not define
+`ansible_checkpoint_target`. The controller must not have
+`/etc/ansible/hosts`; the pinned Gaia plugin reads that hardcoded source to
+enable Management API proxy mode outside the leased direct-member boundary.
+
+## TLS validation modes
+
+`strict` is the default operational choice and the only mode intended for
+production. Set `ansible_httpapi_validate_certs: true`, leave
+`checkpoint_package_state_lab_tls_exception_acknowledged: false`, and trust
+the issuing CA with `ansible_httpapi_ca_path` when a private CA is used.
+
+`lab_unverified` is a temporary lab-only exception. The entire observation
+session is unverified, including feature discovery, fixed `run-script`, and
+task polling. Server identity and MITM protection are absent. It is not a
+production configuration and is not certified. The exception still requires
+check mode, a current lease, exactly two targets, direct HTTPS, and every other
+executor gate. The in-tree lease ceiling remains 15 minutes; the planned lab
+run will use a shorter 12-minute lease.
+
+Use all three settings together. Any mismatch fails before the first request:
+
+```yaml
+# LAB ONLY - do not use for production
+ansible_httpapi_validate_certs: false
+checkpoint_package_state_lab_tls_exception_acknowledged: true
+
+checkpoint_package_state_live_lease:
+  lease_id: 63c53f94-319d-444a-8c43-ec2584bcf985
+  issued_at: "2026-07-29T12:00:00Z"
+  expires_at: "2026-07-29T12:12:00Z"
+  operation: package_state_observation
+  execution_mode: read_only
+  tls_validation_mode: lab_unverified
+  member_targets:
+    - 198.51.100.10
+    - 198.51.100.11
+```
+
+Certificate validation remains a required pending live test before production
+certification. Fix the endpoint certificate and return to `strict`; do not carry
+the acknowledgment into a strict lease.
+
+The role protects acquired package state with `no_log` and publishes
+`checkpoint_package_target_state` on each member. The executor does not write
+an evidence file or authorize package staging, install, upgrade, removal,
+reboot, failover, or policy activity.
+
+## Managed-discovery lease
 
 Keep the lease outside the repository in an ignored local variable file. Its
 shape is:

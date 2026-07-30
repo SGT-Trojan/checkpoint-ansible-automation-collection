@@ -1,0 +1,8 @@
+---
+- name: Offline syntax contract for inventory-bound Deployment Agent observation
+  hosts: checkpoint_deployment_agent_members
+  gather_facts: false
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_deployment_agent_observation
+      checkpoint_deployment_agent_step_name: example-agent-step
+      checkpoint_deployment_agent_required_build: 2771

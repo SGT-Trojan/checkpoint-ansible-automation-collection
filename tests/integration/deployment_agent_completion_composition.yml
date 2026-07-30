@@ -1,0 +1,166 @@
+---
+- name: Exercise offline Deployment Agent completion composition
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    deployment_agent_package_step:
+      name: update_deployment_agent
+      action: upgrade
+      package_type: deployment_agent
+      package_name: DeploymentAgent_00002771.tgz
+      target_ids:
+        - member-a
+        - member-b
+      requires_present: []
+      requires_absent: []
+      source_path: /srv/packages/DeploymentAgent_00002771.tgz
+      checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      artifact_size: 8192
+    deployment_agent_initial_states:
+      - target_id: member-a
+        enabled: true
+        build: 2700
+        cloud_state: update_available
+      - target_id: member-b
+        enabled: true
+        build: 2700
+        cloud_state: unknown
+    deployment_agent_first_states:
+      - target_id: member-a
+        enabled: true
+        build: 2771
+        cloud_state: current
+      - target_id: member-b
+        enabled: true
+        build: 2700
+        cloud_state: unknown
+    deployment_agent_final_states:
+      - target_id: member-a
+        enabled: true
+        build: 2771
+        cloud_state: current
+      - target_id: member-b
+        enabled: true
+        build: 2771
+        cloud_state: current
+  tasks:
+    - name: Bind the synthetic package metadata offline
+      sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_package_bind:
+        package_step: "{{ deployment_agent_package_step }}"
+        required_build: 2771
+        expected_build: 2771
+      register: deployment_agent_binding
+
+    - name: Plan the first member offline
+      sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_update_plan:
+        package_binding: "{{ deployment_agent_binding.binding }}"
+        target_states: "{{ deployment_agent_initial_states }}"
+        selected_target_id: member-a
+      register: deployment_agent_first_update
+
+    - name: Plan first fixed reacquisition offline
+      sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_reacquire_plan:
+        update_plan: "{{ deployment_agent_first_update.plan }}"
+      register: deployment_agent_first_reacquisition
+
+    - name: Compose first-member evidence offline
+      sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_evidence:
+        update_plan: "{{ deployment_agent_first_update.plan }}"
+        reacquisition_plan: >-
+          {{ deployment_agent_first_reacquisition.reacquisition_plan }}
+        target_states: "{{ deployment_agent_first_states }}"
+      register: deployment_agent_first_evidence
+
+    - name: Derive the pending peer plan offline
+      sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_next_plan:
+        update_plan: "{{ deployment_agent_first_update.plan }}"
+        reacquisition_plan: >-
+          {{ deployment_agent_first_reacquisition.reacquisition_plan }}
+        target_states: "{{ deployment_agent_first_states }}"
+        evidence: "{{ deployment_agent_first_evidence.evidence }}"
+      register: deployment_agent_second_update
+
+    - name: Plan second fixed reacquisition offline
+      sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_reacquire_plan:
+        update_plan: "{{ deployment_agent_second_update.plan }}"
+      register: deployment_agent_second_reacquisition
+
+    - name: Compose final evidence offline
+      sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_evidence:
+        update_plan: "{{ deployment_agent_second_update.plan }}"
+        reacquisition_plan: >-
+          {{ deployment_agent_second_reacquisition.reacquisition_plan }}
+        target_states: "{{ deployment_agent_final_states }}"
+      register: deployment_agent_final_evidence
+
+    - name: Attest the exact two-member completion offline
+      ansible.builtin.include_role:
+        name: >-
+          sgt_trojan.checkpoint_automation.checkpoint_deployment_agent_completion
+      vars:
+        checkpoint_deployment_agent_completion_first_update_plan: >-
+          {{ deployment_agent_first_update.plan }}
+        checkpoint_deployment_agent_completion_first_reacquisition_plan: >-
+          {{ deployment_agent_first_reacquisition.reacquisition_plan }}
+        checkpoint_deployment_agent_completion_first_target_states: >-
+          {{ deployment_agent_first_states }}
+        checkpoint_deployment_agent_completion_first_evidence: >-
+          {{ deployment_agent_first_evidence.evidence }}
+        checkpoint_deployment_agent_completion_second_reacquisition_plan: >-
+          {{ deployment_agent_second_reacquisition.reacquisition_plan }}
+        checkpoint_deployment_agent_completion_final_target_states: >-
+          {{ deployment_agent_final_states }}
+        checkpoint_deployment_agent_completion_final_evidence: >-
+          {{ deployment_agent_final_evidence.evidence }}
+
+    - name: Verify the exact completion attestation
+      ansible.builtin.assert:
+        that:
+          - checkpoint_deployment_agent_completion.status == "complete"
+          - >-
+            checkpoint_deployment_agent_completion.completed_target_ids
+            == ["member-a", "member-b"]
+          - checkpoint_deployment_agent_completion.expected_build == 2771
+          - >-
+            checkpoint_deployment_agent_completion.completion_sha256
+            is match("^[0-9a-f]{64}$")
+
+    - name: Verify tampered final evidence fails closed
+      block:
+        - name: Attempt completion with a tampered final evidence digest
+          ansible.builtin.include_role:
+            name: >-
+              sgt_trojan.checkpoint_automation.checkpoint_deployment_agent_completion
+          vars:
+            checkpoint_deployment_agent_completion_first_update_plan: >-
+              {{ deployment_agent_first_update.plan }}
+            checkpoint_deployment_agent_completion_first_reacquisition_plan: >-
+              {{ deployment_agent_first_reacquisition.reacquisition_plan }}
+            checkpoint_deployment_agent_completion_first_target_states: >-
+              {{ deployment_agent_first_states }}
+            checkpoint_deployment_agent_completion_first_evidence: >-
+              {{ deployment_agent_first_evidence.evidence }}
+            checkpoint_deployment_agent_completion_second_reacquisition_plan: >-
+              {{ deployment_agent_second_reacquisition.reacquisition_plan }}
+            checkpoint_deployment_agent_completion_final_target_states: >-
+              {{ deployment_agent_final_states }}
+            checkpoint_deployment_agent_completion_final_evidence: >-
+              {{
+                deployment_agent_final_evidence.evidence
+                | combine(
+                    {
+                      "evidence_chain_sha256":
+                      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    }
+                  )
+              }}
+
+        - name: Reject accepted tampered completion evidence
+          ansible.builtin.fail:
+            msg: Tampered Deployment Agent completion evidence was accepted.
+      rescue:
+        - name: Verify the tampered-evidence category
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_result.category == "EVIDENCE_MISMATCH"

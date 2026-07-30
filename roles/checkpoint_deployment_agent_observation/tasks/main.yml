@@ -1,0 +1,170 @@
+---
+- name: Validate inventory-bound Deployment Agent observation controls
+  ansible.builtin.assert:
+    that:
+      - checkpoint_deployment_agent_step_name is string
+      - checkpoint_deployment_agent_step_name | trim | length > 0
+      - checkpoint_deployment_agent_required_build is integer
+      - checkpoint_deployment_agent_required_build > 0
+      - checkpoint_deployment_agent_required_build <= 9999999999
+      - >-
+        checkpoint_deployment_agent_expected_build is none
+        or
+        (
+          checkpoint_deployment_agent_expected_build is integer
+          and checkpoint_deployment_agent_expected_build > 0
+          and checkpoint_deployment_agent_expected_build <= 9999999999
+        )
+      - inventory_hostname is string
+      - inventory_hostname | trim | length > 0
+      - ansible_host is defined
+      - ansible_host is string
+      - ansible_host | trim | length > 0
+      - ansible_connection in ["httpapi", "ansible.netcommon.httpapi"]
+      - ansible_network_os == "check_point.gaia.checkpoint"
+      - ansible_checkpoint_target is not defined
+      - ansible_httpapi_use_ssl | bool
+      - ansible_httpapi_validate_certs is defined
+      - ansible_httpapi_validate_certs is boolean
+      - checkpoint_deployment_agent_live_lease is mapping
+      - >-
+        checkpoint_deployment_agent_live_lease.get("tls_validation_mode", "")
+        in ["strict", "lab_unverified"]
+      - checkpoint_deployment_agent_lab_tls_exception_acknowledged is boolean
+      - >-
+        (
+          checkpoint_deployment_agent_live_lease.get(
+            "tls_validation_mode", ""
+          ) == "strict"
+          and ansible_httpapi_validate_certs is sameas true
+          and checkpoint_deployment_agent_lab_tls_exception_acknowledged
+              is sameas false
+        )
+        or
+        (
+          checkpoint_deployment_agent_live_lease.get(
+            "tls_validation_mode", ""
+          ) == "lab_unverified"
+          and ansible_httpapi_validate_certs is sameas false
+          and checkpoint_deployment_agent_lab_tls_exception_acknowledged
+              is sameas true
+        )
+      - checkpoint_deployment_agent_live_member_targets is sequence
+      - checkpoint_deployment_agent_live_member_targets | length == 2
+      - >-
+        hostvars["localhost"].ansible_connection | default("local")
+        in ["local", "ansible.builtin.local"]
+      - >-
+        hostvars["localhost"].ansible_host | default("localhost")
+        in ["localhost", "127.0.0.1", "::1"]
+    fail_msg: Deployment Agent observation controls are invalid or inconsistent.
+
+- name: Resolve Gaia credential-presence flags without copying values
+  ansible.builtin.set_fact:
+    checkpoint_deployment_agent_credential_presence:
+      gaia_username: >-
+        {{
+          ansible_user is defined
+          and ansible_user is string
+          and ansible_user | trim | length > 0
+        }}
+      gaia_secret: >-
+        {{
+          ansible_password is defined
+          and ansible_password is string
+          and ansible_password | trim | length > 0
+        }}
+  no_log: true
+
+- name: Authorize immediately before the Gaia feature request
+  sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_live_preflight:
+    lease: "{{ checkpoint_deployment_agent_live_lease }}"
+    member_target: "{{ ansible_host }}"
+    member_targets: "{{ checkpoint_deployment_agent_live_member_targets }}"
+    credential_presence: "{{ checkpoint_deployment_agent_credential_presence }}"
+    tls_validation_enabled: "{{ ansible_httpapi_validate_certs }}"
+    lab_tls_exception_acknowledged: >-
+      {{ checkpoint_deployment_agent_lab_tls_exception_acknowledged }}
+  no_log: true
+  delegate_to: localhost
+  connection: ansible.builtin.local
+  become: false
+
+- name: Read supported Gaia API features for Deployment Agent observation
+  check_point.gaia.cp_gaia_features_facts:
+    version: "{{ checkpoint_deployment_agent_api_version | default(omit, true) }}"
+  register: checkpoint_deployment_agent_gaia_features
+
+- name: Require the Gaia fixed-operation API feature
+  ansible.builtin.assert:
+    that:
+      - checkpoint_deployment_agent_gaia_features.ansible_facts.features is sequence
+      - >-
+        "expert_api_runscript" in
+        (checkpoint_deployment_agent_gaia_features.ansible_facts.features
+        | map(attribute="name") | map("lower") | list)
+    fail_msg: Gaia API does not expose expert_api_runScript.
+
+- name: Authorize immediately before fixed Deployment Agent acquisition
+  sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_live_preflight:
+    lease: "{{ checkpoint_deployment_agent_live_lease }}"
+    member_target: "{{ ansible_host }}"
+    member_targets: "{{ checkpoint_deployment_agent_live_member_targets }}"
+    credential_presence: "{{ checkpoint_deployment_agent_credential_presence }}"
+    tls_validation_enabled: "{{ ansible_httpapi_validate_certs }}"
+    lab_tls_exception_acknowledged: >-
+      {{ checkpoint_deployment_agent_lab_tls_exception_acknowledged }}
+  register: checkpoint_deployment_agent_acquisition_authorization
+  no_log: true
+  delegate_to: localhost
+  connection: ansible.builtin.local
+  become: false
+
+- name: Acquire fixed Deployment Agent state through Gaia HTTPAPI
+  sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_acquire:
+    member_address: "{{ ansible_host }}"
+    version: "{{ checkpoint_deployment_agent_api_version | default(omit, true) }}"
+    timeout_seconds: "{{ checkpoint_deployment_agent_timeout_seconds }}"
+    poll_interval_seconds: "{{ checkpoint_deployment_agent_poll_interval_seconds }}"
+    authorization_expires_at: >-
+      {{
+        checkpoint_deployment_agent_acquisition_authorization
+        ["authorization"]["expires_at"]
+      }}
+  register: checkpoint_deployment_agent_acquired
+  no_log: true
+  failed_when: false
+
+- name: Stop after a failed Deployment Agent acquisition
+  ansible.builtin.fail:
+    msg: >-
+      Deployment Agent acquisition failed
+      (category={{ checkpoint_deployment_agent_acquired.category | default("ACQUISITION_UNAVAILABLE") }},
+      task_id={{ checkpoint_deployment_agent_acquired.task_id | default("not-submitted-or-unavailable") }}).
+  when: checkpoint_deployment_agent_acquired.observation is not defined
+
+- name: Evaluate the Deployment Agent build requirement
+  sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_decide:
+    observation:
+      enabled: "{{ checkpoint_deployment_agent_acquired.observation.enabled }}"
+      build: "{{ checkpoint_deployment_agent_acquired.observation.build }}"
+      cloud_state: >-
+        {{ checkpoint_deployment_agent_acquired.observation.cloud_state }}
+    required_build: "{{ checkpoint_deployment_agent_required_build }}"
+    expected_build: >-
+      {{ checkpoint_deployment_agent_expected_build | default(omit, true) }}
+  register: checkpoint_deployment_agent_evaluated
+  no_log: true
+
+- name: Publish the inventory-bound Deployment Agent state
+  ansible.builtin.set_fact:
+    checkpoint_deployment_agent_target_state:
+      step_name: "{{ checkpoint_deployment_agent_step_name | trim }}"
+      target_id: "{{ inventory_hostname }}"
+      enabled: "{{ checkpoint_deployment_agent_acquired.observation.enabled }}"
+      build: "{{ checkpoint_deployment_agent_acquired.observation.build }}"
+      cloud_state: >-
+        {{ checkpoint_deployment_agent_acquired.observation.cloud_state }}
+      decision: "{{ checkpoint_deployment_agent_evaluated.decision }}"
+  no_log: true
+  changed_when: false

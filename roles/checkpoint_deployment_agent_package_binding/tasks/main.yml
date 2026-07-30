@@ -1,0 +1,74 @@
+---
+- name: Validate offline Deployment Agent package binding inputs
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == "localhost"
+      - >-
+        hostvars["localhost"].ansible_connection | default("local")
+        in ["local", "ansible.builtin.local"]
+      - >-
+        ansible_connection | default("local")
+        in ["local", "ansible.builtin.local"]
+      - >-
+        hostvars["localhost"].ansible_host | default("localhost")
+        in ["localhost", "127.0.0.1", "::1"]
+      - >-
+        ansible_host | default("localhost")
+        in ["localhost", "127.0.0.1", "::1"]
+      - checkpoint_deployment_agent_package_expected_path is string
+      - checkpoint_deployment_agent_package_expected_path | length > 0
+      - checkpoint_deployment_agent_package_steps is sequence
+      - checkpoint_deployment_agent_package_steps is not string
+      - checkpoint_deployment_agent_package_steps | length == 1
+      - checkpoint_deployment_agent_package_target_states is sequence
+      - checkpoint_deployment_agent_package_target_states is not string
+      - checkpoint_deployment_agent_package_step_name is string
+      - checkpoint_deployment_agent_package_step_name | trim | length > 0
+      - checkpoint_deployment_agent_package_required_build is integer
+      - checkpoint_deployment_agent_package_required_build is not boolean
+      - checkpoint_deployment_agent_package_expected_build is integer
+      - checkpoint_deployment_agent_package_expected_build is not boolean
+    fail_msg: >-
+      Package binding requires genuine localhost, one exact package step,
+      structured target state, and explicit numeric builds.
+
+- name: Observe the exact local Deployment Agent package
+  ansible.builtin.include_role:
+    name: sgt_trojan.checkpoint_automation.checkpoint_artifact_observation
+  vars:
+    checkpoint_artifact_expected_path: >-
+      {{ checkpoint_deployment_agent_package_expected_path }}
+
+- name: Validate package identity, checksum, targets, and prerequisites
+  sgt_trojan.checkpoint_automation.cp_automation_package_validate:
+    package_steps: "{{ checkpoint_deployment_agent_package_steps }}"
+    artifacts:
+      - "{{ checkpoint_artifact_observation.artifact }}"
+    target_states: "{{ checkpoint_deployment_agent_package_target_states }}"
+  register: checkpoint_deployment_agent_package_contract
+
+- name: Require one exact validated Deployment Agent package step
+  ansible.builtin.assert:
+    that:
+      - checkpoint_deployment_agent_package_contract.validation.valid
+      - checkpoint_deployment_agent_package_contract.validation.step_count == 1
+      - checkpoint_deployment_agent_package_contract.validation.artifact_count == 1
+      - >-
+        checkpoint_deployment_agent_package_contract.validation.steps
+        | map(attribute="name") | list
+        == [checkpoint_deployment_agent_package_step_name | trim]
+    fail_msg: The validated package step does not match the requested identity.
+
+- name: Bind the validated package to exact Deployment Agent builds
+  sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_package_bind:
+    package_step: >-
+      {{ checkpoint_deployment_agent_package_contract.validation.steps[0] }}
+    required_build: "{{ checkpoint_deployment_agent_package_required_build }}"
+    expected_build: "{{ checkpoint_deployment_agent_package_expected_build }}"
+  register: checkpoint_deployment_agent_package_bound
+
+- name: Publish the offline Deployment Agent package binding
+  ansible.builtin.set_fact:
+    checkpoint_deployment_agent_package_binding: >-
+      {{ checkpoint_deployment_agent_package_bound.binding }}
+  changed_when: false

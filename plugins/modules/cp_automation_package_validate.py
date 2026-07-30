@@ -40,7 +40,7 @@ options:
     description:
       - Structured observations bound to an exact step and target identity.
       - Each observation must set C(installed_packages_complete=true).
-      - Only an acquisition path that proves complete inventory may set the
+      - Only a separately reviewed complete inventory acquisition may set the
         completeness flag.
     type: list
     elements: dict

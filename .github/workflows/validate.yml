@@ -45,6 +45,7 @@ jobs:
             --collection-root .
           python3 tests/utils/verify_package_inventory_capability.py \
             --vendor-root "$syntax_root/ansible_collections/check_point/mgmt"
+          python3 tests/utils/run_deployment_agent_completion_focus.py
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
             playbooks/resolve_managed_cluster.yml --syntax-check \
             -i examples/managed_target_inventory.yml \
@@ -58,8 +59,26 @@ jobs:
             tests/integration/readiness_acquisition_syntax.yml --syntax-check \
             -i examples/managed_target_inventory.yml
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/package_state_acquisition_syntax.yml --syntax-check \
+            -i examples/package_state_inventory.yml
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            playbooks/live_readonly_package_state.yml --syntax-check \
+            -i examples/package_state_inventory.yml
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
             tests/integration/artifact_observation_syntax.yml --syntax-check \
             -i examples/managed_target_inventory.yml
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/deployment_agent_package_binding.yml \
+            -i localhost, -c local
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/deployment_agent_package_composition.yml \
+            -i localhost, -c local
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/deployment_agent_completion_syntax.yml \
+            --syntax-check -i localhost, -c local
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/deployment_agent_completion_composition.yml \
+            -i localhost, -c local
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
             playbooks/live_readonly_managed_discovery.yml --syntax-check \
             -i examples/managed_target_inventory.yml \
@@ -80,6 +99,12 @@ jobs:
         run: |
           python3 -m unittest \
             tests.unit.plugins.module_utils.test_live_preflight \
+            tests.unit.plugins.module_utils.test_package_state_live_preflight \
+            tests.unit.plugins.module_utils.test_package_state_acquisition \
+            tests.unit.plugins.modules.test_package_state_live_preflight_module \
+            tests.unit.plugins.modules.test_package_state_acquire_module \
+            tests.unit.test_package_state_live_graph \
+            tests.unit.test_package_state_live_orchestration \
             tests.unit.test_live_graph_verifier \
             tests.unit.test_collection_policy_verifier
           python3 tests/utils/verify_live_readonly_graph.py --collection-root .

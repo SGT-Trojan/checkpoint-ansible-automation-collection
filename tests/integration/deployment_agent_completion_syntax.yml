@@ -1,0 +1,10 @@
+---
+- name: Validate offline Deployment Agent completion role syntax
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Resolve the offline completion role
+      ansible.builtin.include_role:
+        name: >-
+          sgt_trojan.checkpoint_automation.checkpoint_deployment_agent_completion

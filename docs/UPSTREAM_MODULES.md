@@ -9,6 +9,11 @@ workflow contract. The first certified dependency set is:
 
 Collection metadata permits later compatible releases within the same major
 version, but live certification always records exact versions.
+`ansible.netcommon` 8.x supplies the HTTPAPI connection plugin used by the
+Gaia inventory examples; it is an explicit dependency because it is not part
+of `ansible-core` and Check Point Gaia 7.0.0 does not declare it. The install
+requirements also pin its resolved `ansible.utils` dependency to 6.0.3 so the
+verified dependency graph can be reproduced exactly.
 
 ## Reuse Map
 
@@ -30,6 +35,8 @@ version, but live certification always records exact versions.
 | Policy | `cp_mgmt_verify_policy`, `cp_mgmt_install_policy` | Mixed-version and final-policy acceptance rules |
 | Gaia capabilities | `cp_gaia_api_versions_facts`, `cp_gaia_features_facts` | Availability gate before Gaia API use |
 | ClusterXL readiness acquisition | `cp_gaia_features_facts`, Gaia HTTPAPI `send_request` helper | Role-feature gate, typed fixed `run-script` payload, bounded task polling, and strict evidence validation |
+| Installed packages and restore capacity | `cp_gaia_features_facts`, Gaia HTTPAPI `send_request` helper | `checkpoint_package_state_acquisition` inventory binding, fixed `cp_automation_package_state_acquire` operation, and strict recognized-format/capacity parsing |
+| Deployment Agent | Gaia HTTPAPI `send_request` helper; no dedicated resource module in the pinned collections | Inventory-bound `checkpoint_deployment_agent_observation`, fixed `cp_automation_deployment_agent_acquire`, numeric build decision, offline package binding, update, reconnect, and reconciliation |
 | Gaia reboot | `cp_gaia_run_reboot`, `cp_gaia_task_facts` | Check-mode block, timeout, reconnect, and health samples |
 | Gaia file creation | `cp_gaia_put_file` | Text only; large package staging remains custom |
 
@@ -42,12 +49,26 @@ The pinned-source acquisition audit also found that
 `cp_mgmt_show_software_packages_per_targets` does not expose a pagination or
 completeness contract, while the available Gaia diagnostics, asset, and
 scheduled-snapshot facts do not document current restore-point free capacity.
-The collection therefore does not mark either target observation complete.
-Only controller-local artifact metadata is currently acquired, through the
-no-follow `cp_automation_artifact_observe` gap module.
+The fixed `cp_automation_package_state_acquire` gap module addresses those two
+missing target observations through the supported Gaia HTTPAPI helper. It may
+mark installed inventory complete only after its exact command and strict
+parser succeed. `checkpoint_package_state_acquisition` binds it to one exact
+inventory host and produces validator-ready state. Its leased read-only executor
+is not firewall-certified yet. Controller-local artifact
+metadata remains separate in `cp_automation_artifact_observe`.
 
 Deprecated `checkpoint_*` modules are prohibited. `cp_mgmt_show_task` is also
 prohibited; use `cp_mgmt_task_facts`.
+
+The pinned Management and Gaia collections do not provide a dedicated
+Deployment Agent status or update module. The local
+`cp_automation_deployment_agent_observe` and
+`cp_automation_deployment_agent_decide` modules therefore own status
+normalization and the numeric build contract. Neither runs a command. Fixed
+acquisition is provided by `cp_automation_deployment_agent_acquire`.
+`checkpoint_deployment_agent_observation` binds that operation to a short
+two-member lease and direct Gaia inventory. Package binding and update remain
+pending.
 
 ## Safety Limits
 
@@ -74,12 +95,17 @@ replay of the mutation.
 modules. The collection will not use generic script execution to hide CDT,
 CPUSE, MVC, ClusterXL, or package-staging behavior.
 
-The readiness acquisition exception is narrower than
-`cp_gaia_run_script`: `cp_automation_readiness_acquire` has no caller-supplied
-script, command, path, arguments, or environment. It sends one fixed internal
-operation through the Gaia `run-script` endpoint using the supported HTTPAPI
-helper, requires the `expert_api_runScript` feature record and the
-`expert_api_runscript`, `expert_api_misc`, and `expert_api_features` Gaia role
-permissions, validates the exact asynchronous task and section envelope, and
-returns `changed: false`. This is an endpoint reuse, not a native ClusterXL
-facts API.
+The readiness and package-state acquisition exceptions are narrower than
+`cp_gaia_run_script`: `cp_automation_readiness_acquire`,
+`cp_automation_package_state_acquire`, and
+`cp_automation_deployment_agent_acquire` have no caller-supplied script, command,
+path, arguments, or environment. Each sends one fixed internal operation
+through the Gaia `run-script` endpoint using the supported HTTPAPI helper,
+validates the exact asynchronous task and section envelope, and returns
+`changed: false`.
+
+A calling role must first verify the `expert_api_runScript` feature record and
+bind the expected member address to its HTTPAPI inventory host. The API role
+needs `expert_api_runscript`, `expert_api_misc`, and `expert_api_features`.
+The readiness and package-state roles both enforce these controls. These are
+endpoint reuse contracts, not native readiness or CPUSE facts APIs.

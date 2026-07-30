@@ -1,16 +1,16 @@
 # Workflow Parity Matrix
 
-This matrix tracks the Check Point workflow capabilities planned for this
-collection.
+This matrix tracks behavior from the established Check Point automation
+workflow as it moves into this collection.
 
 | Capability | Upstream module | Custom content | Offline tests | Live test |
 |---|---|---|---|---|
-| MDS, domain, cluster, member, and policy resolution | Vendor facts modules provide source records | `cp_automation_target_resolve` | Passing | Pending |
-| Management API pagination completeness | Vendor modules expose `limit` and `offset` | `cp_automation_pages_merge` | Passing | Pending |
+| MDS, domain, cluster, member, and policy resolution | Vendor facts modules provide source records | `cp_automation_target_resolve` | 24 passing | Pending |
+| Management API pagination completeness | Vendor modules expose `limit` and `offset` | `cp_automation_pages_merge` | 13 passing | Pending |
 | Constrained live managed-discovery executor | Existing read-only vendor facts only | `cp_automation_live_preflight`, lease and inventory-bound role | Offline hostile gates passing | Pending |
-| Cluster and gateway readiness | Gaia HTTPAPI helper with fixed `run-script` operation | `cp_automation_readiness_acquire`, `cp_automation_cluster_observe`, `cp_automation_readiness_decide` | Passing | Pending |
-| Package identity, checksum, action, and prerequisites | Target inventory/capacity acquisition remains pending after pinned-source audit | `cp_automation_artifact_observe` local no-follow observer and `cp_automation_package_validate` transport-free contract | Hostile artifact and contract fixtures passing | Pending |
-| Deployment Agent readiness and update | Under review | Under review | Pending | Pending |
+| Cluster and gateway readiness | Gaia HTTPAPI helper with fixed `run-script` operation | `cp_automation_readiness_acquire`, `cp_automation_cluster_observe`, `cp_automation_readiness_decide` | 50 passing | Pending |
+| Package identity, checksum, action, and prerequisites | Pinned vendor facts remain insufficient; fixed Gaia HTTPAPI helper reused | `cp_automation_artifact_observe`, `checkpoint_package_state_acquisition`, `cp_automation_package_state_live_preflight`, `cp_automation_package_state_acquire`, and `cp_automation_package_validate` | Hostile artifact, acquisition, inventory-binding, and contract fixtures passing | Package-state acquisition passed on two lab members in check mode with `lab_unverified`; strict TLS and end-to-end validation pending |
+| Deployment Agent readiness and update | Gaia HTTPAPI helper reused; no dedicated module in the pinned Management or Gaia collections | `checkpoint_deployment_agent_observation`, `checkpoint_deployment_agent_package_binding`, `cp_automation_deployment_agent_live_preflight`, `cp_automation_deployment_agent_acquire`, `cp_automation_deployment_agent_observe`, `cp_automation_deployment_agent_decide`, and `cp_automation_deployment_agent_package_bind`; update remains pending | Lease, inventory binding, fixed acquisition, graph, parser, numeric decision, package binding, and offline composition fixtures passing | Two-member read-only observation passed with the lab TLS exception; strict TLS and update pending |
 | CDT candidate generation and guarded execution | None expected | Required | Pending | Pending |
 | Management API package workflow | `check_point.mgmt.cp_mgmt_*` | Safety and reconciliation gates | Pending | Pending |
 | Direct CPUSE fallback | Under review | Required | Pending | Pending |
@@ -24,9 +24,9 @@ complete paginated domain and gateway facts plus full detail for every relevant
 cluster. The module rejects partial data, duplicate domains, ambiguous matches,
 missing member identity, and clusters outside the certified two-member scope.
 
-## Required Live Workflows
+## Inherited Live Workflows
 
-The live acceptance program must reproduce these target transitions:
+The collection must reproduce these previously tested transitions:
 
 | Workflow | Starting state | Expected state |
 |---|---|---|
@@ -125,7 +125,7 @@ The acceptance suite must reproduce:
 
 Standalone gateways, clusters with more than two members, unlisted releases,
 API-only rolling uninstall, and arbitrary historical JHFs remain outside the
-current certification boundary.
+inherited certification boundary.
 
 No capability is complete until its contract, negative tests, and required live
 cycle have passed.

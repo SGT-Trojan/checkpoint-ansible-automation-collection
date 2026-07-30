@@ -18,6 +18,10 @@ runs/
 evidence/
 artifacts/
 
+# Local coordination and review worktrees
+.automation/
+.reviews/
+
 # Editors
 .idea/
 .vscode/

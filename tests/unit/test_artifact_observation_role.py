@@ -21,6 +21,8 @@ class ArtifactObservationRoleTests(unittest.TestCase):
         conditions = str(tasks[0]["ansible.builtin.assert"]["that"])
         self.assertIn("hostvars['localhost'].ansible_connection", conditions)
         self.assertIn("hostvars['localhost'].ansible_host", conditions)
+        self.assertIn("ansible_connection | default('local')", conditions)
+        self.assertIn("ansible_host | default('localhost')", conditions)
         module_task = tasks[1]
         action = (
             "sgt_trojan.checkpoint_automation."

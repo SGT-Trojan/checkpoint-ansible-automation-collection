@@ -33,6 +33,8 @@ firewall until the live parity matrix is complete.
 - Ansible Core 2.16 through 2.21
 - `check_point.mgmt` 6.9.x
 - `check_point.gaia` 7.x
+- `ansible.netcommon` 8.x
+- `ansible.utils` 6.0.3 (exact reproducibility pin)
 
 Install collection dependencies:
 
@@ -50,8 +52,9 @@ ansible-galaxy collection build .
 
 See [Managed target discovery](docs/MANAGED_TARGET_DISCOVERY.md),
 [Cluster readiness](docs/CLUSTER_READINESS.md),
+[Deployment Agent](docs/DEPLOYMENT_AGENT.md),
 [Offline package validation](docs/PACKAGE_VALIDATION.md),
-[Package observation boundary](docs/PACKAGE_ACQUISITION.md),
+[Package observation and inventory binding](docs/PACKAGE_ACQUISITION.md),
 [Constrained live read-only executor](docs/LIVE_READONLY_EXECUTOR.md),
 [Architecture](docs/ARCHITECTURE.md),
 [Vendor module reuse](docs/UPSTREAM_MODULES.md), and

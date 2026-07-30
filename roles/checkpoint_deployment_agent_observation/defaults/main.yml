@@ -1,0 +1,10 @@
+---
+checkpoint_deployment_agent_step_name: ""
+checkpoint_deployment_agent_api_version: null
+checkpoint_deployment_agent_timeout_seconds: 120
+checkpoint_deployment_agent_poll_interval_seconds: 2
+checkpoint_deployment_agent_required_build: null
+checkpoint_deployment_agent_expected_build: null
+checkpoint_deployment_agent_live_lease: {}
+checkpoint_deployment_agent_live_member_targets: []
+checkpoint_deployment_agent_lab_tls_exception_acknowledged: false

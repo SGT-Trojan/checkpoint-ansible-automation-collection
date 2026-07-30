@@ -1,0 +1,41 @@
+---
+- name: Exercise the offline Deployment Agent package binding module
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    deployment_agent_package_step:
+      name: update_deployment_agent
+      action: upgrade
+      package_type: deployment_agent
+      package_name: DeploymentAgent_00002771.tgz
+      target_ids:
+        - member-a
+        - member-b
+      requires_present: []
+      requires_absent: []
+      source_path: /srv/checkpoint/packages/DeploymentAgent_00002771.tgz
+      checksum_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      artifact_size: 8192
+  tasks:
+    - name: Bind the validated package to exact builds
+      sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_package_bind:
+        package_step: "{{ deployment_agent_package_step }}"
+        required_build: 2771
+        expected_build: 2771
+      register: deployment_agent_package_binding
+
+    - name: Verify the offline binding result
+      ansible.builtin.assert:
+        that:
+          - not deployment_agent_package_binding.changed
+          - >-
+            deployment_agent_package_binding.binding.operation
+            == "installer_agent_install"
+          - >-
+            deployment_agent_package_binding.binding.target_ids
+            == ["member-a", "member-b"]
+          - >-
+            deployment_agent_package_binding.binding.binding_sha256
+            is match("^[0-9a-f]{64}$")
