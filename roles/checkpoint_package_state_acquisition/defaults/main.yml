@@ -1,0 +1,9 @@
+---
+checkpoint_package_state_step_name: ""
+checkpoint_package_state_api_version: null
+checkpoint_package_state_timeout_seconds: 120
+checkpoint_package_state_poll_interval_seconds: 2
+checkpoint_package_state_max_output_bytes: 524288
+checkpoint_package_state_live_lease: {}
+checkpoint_package_state_live_member_targets: []
+checkpoint_package_state_lab_tls_exception_acknowledged: false

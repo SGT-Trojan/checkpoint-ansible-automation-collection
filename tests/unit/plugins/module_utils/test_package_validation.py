@@ -504,6 +504,22 @@ class PackageValidationTests(unittest.TestCase):
             lambda: self.validate(steps=duplicate, artifacts=[artifact()]),
         )
 
+    def test_identity_text_rejects_non_printable_characters(self) -> None:
+        for field, value in (
+            ("name", "install\tbundle"),
+            ("package_name", "Check_Point_\x1bpackage.tgz"),
+            ("source_path", "/srv/packages/\tCheck_Point_package.tgz"),
+            ("target_ids", ["member-a", "member-\x7fb"]),
+            ("requires_present", ["Base\x0bImage"]),
+        ):
+            step = install_step()
+            step[field] = value
+            with self.subTest(field=field):
+                self.assert_category(
+                    "INVALID_INPUT",
+                    lambda step=step: self.validate(steps=[step]),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

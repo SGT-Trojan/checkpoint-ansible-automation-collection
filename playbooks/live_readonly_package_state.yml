@@ -1,0 +1,43 @@
+---
+- name: Bind the live package-state lease to exactly two inventory members
+  hosts: localhost
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Require the exact package-state inventory group
+      ansible.builtin.assert:
+        that:
+          - groups["checkpoint_package_state_members"] | default([]) | length == 2
+          - >-
+            hostvars["localhost"].ansible_connection | default("local")
+            in ["local", "ansible.builtin.local"]
+          - >-
+            hostvars["localhost"].ansible_host | default("localhost")
+            in ["localhost", "127.0.0.1", "::1"]
+        fail_msg: Live package-state observation requires exactly two inventory members.
+
+    - name: Derive the exact runtime member target set
+      ansible.builtin.set_fact:
+        checkpoint_package_state_live_runtime_targets: >-
+          {{
+            groups["checkpoint_package_state_members"]
+            | map("extract", hostvars, "ansible_host")
+            | list
+          }}
+      no_log: true
+      changed_when: false
+
+- name: Observe package state through the reviewed live read-only boundary
+  hosts: checkpoint_package_state_members
+  gather_facts: false
+  any_errors_fatal: true
+  serial: 1
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_package_state_acquisition
+      vars:
+        checkpoint_package_state_live_member_targets: >-
+          {{
+            hostvars["localhost"][
+              "checkpoint_package_state_live_runtime_targets"
+            ]
+          }}

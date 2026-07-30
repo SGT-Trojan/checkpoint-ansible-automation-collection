@@ -18,12 +18,15 @@ tags:
 dependencies:
   check_point.mgmt: ">=6.9.0,<7.0.0"
   check_point.gaia: ">=7.0.0,<8.0.0"
+  ansible.netcommon: ">=8.6.0,<9.0.0"
 repository: https://github.com/SGT-Trojan/checkpoint-ansible-automation-collection
 documentation: https://github.com/SGT-Trojan/checkpoint-ansible-automation-collection
 issues: https://github.com/SGT-Trojan/checkpoint-ansible-automation-collection/issues
 build_ignore:
   - PROGRESS.md
+  - .automation
   - .github
+  - .reviews
   - .venv
   - artifacts
   - build

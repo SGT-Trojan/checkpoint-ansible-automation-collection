@@ -37,6 +37,46 @@ APPROVED_ACTIONS = frozenset(
 )
 REQUIRED_ACTIONS = APPROVED_ACTIONS
 ENTRYPOINT = Path("playbooks/live_readonly_managed_discovery.yml")
+PACKAGE_STATE_ENTRYPOINT = Path("playbooks/live_readonly_package_state.yml")
+DEPLOYMENT_AGENT_ENTRYPOINT = Path(
+    "playbooks/live_readonly_deployment_agent.yml"
+)
+PACKAGE_STATE_APPROVED_ACTIONS = frozenset(
+    {
+        "ansible.builtin.assert",
+        "ansible.builtin.fail",
+        "ansible.builtin.set_fact",
+        "check_point.gaia.cp_gaia_features_facts",
+        (
+            "sgt_trojan.checkpoint_automation."
+            "cp_automation_package_state_acquire"
+        ),
+        (
+            "sgt_trojan.checkpoint_automation."
+            "cp_automation_package_state_live_preflight"
+        ),
+    }
+)
+DEPLOYMENT_AGENT_APPROVED_ACTIONS = frozenset(
+    {
+        "ansible.builtin.assert",
+        "ansible.builtin.fail",
+        "ansible.builtin.set_fact",
+        "check_point.gaia.cp_gaia_features_facts",
+        (
+            "sgt_trojan.checkpoint_automation."
+            "cp_automation_deployment_agent_acquire"
+        ),
+        (
+            "sgt_trojan.checkpoint_automation."
+            "cp_automation_deployment_agent_decide"
+        ),
+        (
+            "sgt_trojan.checkpoint_automation."
+            "cp_automation_deployment_agent_live_preflight"
+        ),
+    }
+)
 LOCAL_ROLE_PREFIX = "sgt_trojan.checkpoint_automation."
 INCLUDE_TASK_ACTIONS = frozenset(
     {
@@ -442,6 +482,26 @@ def verify_live_graph(collection_root: Path) -> GraphReport:
     return GraphVerifier(collection_root).verify()
 
 
+def verify_package_state_live_graph(collection_root: Path) -> GraphReport:
+    """Verify the shipped package-state read-only executor."""
+
+    return GraphVerifier(
+        collection_root,
+        approved_actions=PACKAGE_STATE_APPROVED_ACTIONS,
+        required_actions=PACKAGE_STATE_APPROVED_ACTIONS,
+    ).verify(PACKAGE_STATE_ENTRYPOINT)
+
+
+def verify_deployment_agent_live_graph(collection_root: Path) -> GraphReport:
+    """Verify the shipped Deployment Agent read-only executor."""
+
+    return GraphVerifier(
+        collection_root,
+        approved_actions=DEPLOYMENT_AGENT_APPROVED_ACTIONS,
+        required_actions=DEPLOYMENT_AGENT_APPROVED_ACTIONS,
+    ).verify(DEPLOYMENT_AGENT_ENTRYPOINT)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -451,11 +511,27 @@ def main() -> None:
     )
     args = parser.parse_args()
     report = verify_live_graph(args.collection_root)
+    package_report = verify_package_state_live_graph(args.collection_root)
+    deployment_agent_report = verify_deployment_agent_live_graph(
+        args.collection_root
+    )
     print(
-        "verified live read-only graph: "
+        "verified managed-discovery live read-only graph: "
         f"{len(report.files)} files, "
         f"{len(report.actions)} actions, "
         f"{report.action_occurrences} occurrences"
+    )
+    print(
+        "verified package-state live read-only graph: "
+        f"{len(package_report.files)} files, "
+        f"{len(package_report.actions)} actions, "
+        f"{package_report.action_occurrences} occurrences"
+    )
+    print(
+        "verified Deployment Agent live read-only graph: "
+        f"{len(deployment_agent_report.files)} files, "
+        f"{len(deployment_agent_report.actions)} actions, "
+        f"{deployment_agent_report.action_occurrences} occurrences"
     )
 
 

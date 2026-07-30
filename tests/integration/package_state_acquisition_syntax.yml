@@ -1,0 +1,7 @@
+---
+- name: Offline syntax contract for inventory-bound package-state acquisition
+  hosts: checkpoint_package_state_members
+  gather_facts: false
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_package_state_acquisition
+      checkpoint_package_state_step_name: example-package-step

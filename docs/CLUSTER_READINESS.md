@@ -90,6 +90,9 @@ requires TLS-verified `ansible.netcommon.httpapi` with
 `ansible_network_os: check_point.gaia.checkpoint`, then passes the acquired
 sections to the parser without exposing them in normal task output.
 
+The package-state executor's lab-only TLS exception does not apply to this
+readiness role.
+
 The role requires `ansible_host` to be an IPv4 or IPv6 address literal;
 hostnames are rejected before the operation is submitted.
 

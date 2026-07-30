@@ -37,6 +37,8 @@ set `ansible_api_key` from Vault. Do not configure both authentication methods.
 
 Keep certificate validation enabled. Add the issuing CA to the automation
 host's trust store instead of setting `ansible_httpapi_validate_certs: false`.
+The package-state executor's lease-bound lab exception does not apply to this
+managed-discovery workflow.
 
 ## Targets
 

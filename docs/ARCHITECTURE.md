@@ -91,6 +91,27 @@ uses a typed fixed Gaia HTTPAPI operation and accepts no caller-supplied
 command text. This boundary keeps arbitrary remote execution out of module
 inputs and lets hostile fixtures test the complete decision logic offline.
 
+## Package-state observation
+
+`checkpoint_package_state_acquisition` applies the fixed-operation pattern to
+installed CPUSE inventory and restore-point free capacity. It binds the module
+request to `ansible_host`, derives the validator target identity from
+`inventory_hostname`, checks the required Gaia feature, and publishes only the
+strict target-state fields accepted by `cp_automation_package_validate`.
+
+The shipped `live_readonly_package_state.yml` entry point binds this role to a
+short-lived two-member lease and check mode. It runs members serially and
+rechecks authorization immediately before both network operations. Firewall
+certification and evidence persistence remain pending. Package staging and
+execution are separate layers.
+
+## Deployment Agent observation
+
+`checkpoint_deployment_agent_observation` applies the same boundary to agent
+status. Its lease has a different operation name, so a package-state lease
+cannot authorize an agent request. The role returns status and a numeric
+readiness decision. It has no update action.
+
 ## Live read-only boundary
 
 The live managed-discovery entry point begins with a localhost preflight. A

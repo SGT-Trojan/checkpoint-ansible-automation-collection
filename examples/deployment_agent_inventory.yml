@@ -1,0 +1,19 @@
+---
+all:
+  children:
+    checkpoint_deployment_agent_members:
+      vars:
+        ansible_connection: ansible.netcommon.httpapi
+        ansible_network_os: check_point.gaia.checkpoint
+        ansible_httpapi_use_ssl: true
+        ansible_httpapi_validate_certs: true
+        ansible_user: "{{ vault_checkpoint_username }}"
+        ansible_password: "{{ vault_checkpoint_password }}"
+        checkpoint_deployment_agent_api_version: "1.7"
+        checkpoint_deployment_agent_step_name: pre-package-agent-check
+        checkpoint_deployment_agent_required_build: 2771
+      hosts:
+        member-a:
+          ansible_host: 192.0.2.10
+        member-b:
+          ansible_host: 192.0.2.11

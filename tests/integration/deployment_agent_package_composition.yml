@@ -1,0 +1,109 @@
+---
+- name: Exercise offline Deployment Agent package composition
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  tasks:
+    - name: Create an isolated fixture directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: checkpoint-da-package-
+      register: deployment_agent_fixture_directory
+
+    - name: Exercise composition and cleanup
+      block:
+        - name: Create the package fixture
+          ansible.builtin.copy:
+            dest: "{{ deployment_agent_fixture_directory.path }}/agent.tgz"
+            content: abc
+            mode: "0600"
+
+        - name: Define the validated package inputs
+          ansible.builtin.set_fact:
+            deployment_agent_fixture_steps:
+              - name: update_deployment_agent
+                action: upgrade
+                package_type: deployment_agent
+                package_name: agent.tgz
+                target_ids:
+                  - member-a
+                  - member-b
+                requires_present: []
+                requires_absent: []
+                source_path: >-
+                  {{ deployment_agent_fixture_directory.path }}/agent.tgz
+                checksum_sha256: >-
+                  ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+            deployment_agent_fixture_targets:
+              - step_name: update_deployment_agent
+                target_id: member-a
+                installed_packages: []
+                installed_packages_complete: true
+                restore_point_free_bytes: null
+              - step_name: update_deployment_agent
+                target_id: member-b
+                installed_packages: []
+                installed_packages_complete: true
+                restore_point_free_bytes: null
+
+        - name: Compose the offline package binding
+          ansible.builtin.include_role:
+            name: >-
+              sgt_trojan.checkpoint_automation.checkpoint_deployment_agent_package_binding
+          vars:
+            checkpoint_deployment_agent_package_expected_path: >-
+              {{ deployment_agent_fixture_directory.path }}/agent.tgz
+            checkpoint_deployment_agent_package_steps: >-
+              {{ deployment_agent_fixture_steps }}
+            checkpoint_deployment_agent_package_target_states: >-
+              {{ deployment_agent_fixture_targets }}
+            checkpoint_deployment_agent_package_step_name: update_deployment_agent
+            checkpoint_deployment_agent_package_required_build: 2771
+            checkpoint_deployment_agent_package_expected_build: 2771
+
+        - name: Verify the composed binding
+          ansible.builtin.assert:
+            that:
+              - >-
+                checkpoint_deployment_agent_package_binding.operation
+                == "installer_agent_install"
+              - >-
+                checkpoint_deployment_agent_package_binding.checksum_sha256
+                == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+              - checkpoint_deployment_agent_package_binding.artifact_size == 3
+              - >-
+                checkpoint_deployment_agent_package_binding.target_ids
+                == ["member-a", "member-b"]
+
+        - name: Verify typed build downgrade fails closed
+          block:
+            - name: Attempt a typed build downgrade
+              ansible.builtin.include_role:
+                name: >-
+                  sgt_trojan.checkpoint_automation.checkpoint_deployment_agent_package_binding
+              vars:
+                checkpoint_deployment_agent_package_expected_path: >-
+                  {{ deployment_agent_fixture_directory.path }}/agent.tgz
+                checkpoint_deployment_agent_package_steps: >-
+                  {{ deployment_agent_fixture_steps }}
+                checkpoint_deployment_agent_package_target_states: >-
+                  {{ deployment_agent_fixture_targets }}
+                checkpoint_deployment_agent_package_step_name: update_deployment_agent
+                checkpoint_deployment_agent_package_required_build: 2771
+                checkpoint_deployment_agent_package_expected_build: 2770
+
+            - name: Reject an accepted typed build downgrade
+              ansible.builtin.fail:
+                msg: Typed Deployment Agent build downgrade was accepted.
+          rescue:
+            - name: Verify the typed downgrade category
+              ansible.builtin.assert:
+                that:
+                  - ansible_failed_result.category == "BUILD_INVALID"
+      always:
+        - name: Remove the package fixture
+          ansible.builtin.file:
+            path: "{{ deployment_agent_fixture_directory.path }}"
+            state: absent

@@ -80,7 +80,7 @@ def _text(value: object, label: str, *, required: bool = True) -> str:
     result = value.strip()
     if required and not result:
         _fail("INVALID_INPUT", f"{label} must not be empty")
-    if "\x00" in result or "\n" in result or "\r" in result:
+    if not result.isprintable():
         _fail("INVALID_INPUT", f"{label} contains prohibited control text")
     return result
 

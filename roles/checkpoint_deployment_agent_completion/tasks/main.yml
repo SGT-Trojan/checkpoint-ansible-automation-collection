@@ -1,0 +1,80 @@
+---
+- name: Validate offline Deployment Agent completion inputs
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == "localhost"
+      - >-
+        hostvars["localhost"].ansible_connection | default("local")
+        in ["local", "ansible.builtin.local"]
+      - >-
+        ansible_connection | default("local")
+        in ["local", "ansible.builtin.local"]
+      - >-
+        hostvars["localhost"].ansible_host | default("localhost")
+        in ["localhost", "127.0.0.1", "::1"]
+      - >-
+        ansible_host | default("localhost")
+        in ["localhost", "127.0.0.1", "::1"]
+      - checkpoint_deployment_agent_completion_first_update_plan is mapping
+      - checkpoint_deployment_agent_completion_first_update_plan | length > 0
+      - >-
+        checkpoint_deployment_agent_completion_first_reacquisition_plan
+        is mapping
+      - >-
+        checkpoint_deployment_agent_completion_first_reacquisition_plan
+        | length > 0
+      - >-
+        checkpoint_deployment_agent_completion_first_target_states
+        is sequence
+      - >-
+        checkpoint_deployment_agent_completion_first_target_states
+        is not string
+      - >-
+        checkpoint_deployment_agent_completion_first_target_states
+        | length > 0
+      - checkpoint_deployment_agent_completion_first_evidence is mapping
+      - checkpoint_deployment_agent_completion_first_evidence | length > 0
+      - >-
+        checkpoint_deployment_agent_completion_second_reacquisition_plan
+        is mapping
+      - >-
+        checkpoint_deployment_agent_completion_second_reacquisition_plan
+        | length > 0
+      - >-
+        checkpoint_deployment_agent_completion_final_target_states
+        is sequence
+      - >-
+        checkpoint_deployment_agent_completion_final_target_states
+        is not string
+      - >-
+        checkpoint_deployment_agent_completion_final_target_states
+        | length > 0
+      - checkpoint_deployment_agent_completion_final_evidence is mapping
+      - checkpoint_deployment_agent_completion_final_evidence | length > 0
+    fail_msg: >-
+      Completion attestation requires genuine localhost and structured
+      two-member offline evidence inputs.
+
+- name: Attest exact two-member Deployment Agent completion
+  sgt_trojan.checkpoint_automation.cp_automation_deployment_agent_completion:
+    first_update_plan: >-
+      {{ checkpoint_deployment_agent_completion_first_update_plan }}
+    first_reacquisition_plan: >-
+      {{ checkpoint_deployment_agent_completion_first_reacquisition_plan }}
+    first_target_states: >-
+      {{ checkpoint_deployment_agent_completion_first_target_states }}
+    first_evidence: >-
+      {{ checkpoint_deployment_agent_completion_first_evidence }}
+    second_reacquisition_plan: >-
+      {{ checkpoint_deployment_agent_completion_second_reacquisition_plan }}
+    final_target_states: >-
+      {{ checkpoint_deployment_agent_completion_final_target_states }}
+    final_evidence: >-
+      {{ checkpoint_deployment_agent_completion_final_evidence }}
+  register: checkpoint_deployment_agent_completion_result
+
+- name: Publish sanitized Deployment Agent completion attestation
+  ansible.builtin.set_fact:
+    checkpoint_deployment_agent_completion: >-
+      {{ checkpoint_deployment_agent_completion_result.completion }}
+  changed_when: false
