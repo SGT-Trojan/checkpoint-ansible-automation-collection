@@ -62,8 +62,14 @@ jobs:
             tests/integration/package_state_acquisition_syntax.yml --syntax-check \
             -i examples/package_state_inventory.yml
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/deployment_agent_observation_syntax.yml --syntax-check \
+            -i examples/deployment_agent_inventory.yml
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
             playbooks/live_readonly_package_state.yml --syntax-check \
             -i examples/package_state_inventory.yml
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            playbooks/live_readonly_deployment_agent.yml --syntax-check \
+            -i examples/deployment_agent_inventory.yml
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
             tests/integration/artifact_observation_syntax.yml --syntax-check \
             -i examples/managed_target_inventory.yml
@@ -105,6 +111,12 @@ jobs:
             tests.unit.plugins.modules.test_package_state_acquire_module \
             tests.unit.test_package_state_live_graph \
             tests.unit.test_package_state_live_orchestration \
+            tests.unit.plugins.module_utils.test_deployment_agent_live_preflight \
+            tests.unit.plugins.module_utils.test_deployment_agent_acquisition \
+            tests.unit.plugins.modules.test_deployment_agent_live_preflight_module \
+            tests.unit.plugins.modules.test_deployment_agent_acquire_module \
+            tests.unit.test_deployment_agent_live_graph \
+            tests.unit.test_deployment_agent_live_orchestration \
             tests.unit.test_live_graph_verifier \
             tests.unit.test_collection_policy_verifier
           python3 tests/utils/verify_live_readonly_graph.py --collection-root .

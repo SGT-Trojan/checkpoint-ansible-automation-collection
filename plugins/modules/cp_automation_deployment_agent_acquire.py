@@ -30,7 +30,9 @@ options:
     description: Gaia API version, for example C(1.7).
     type: str
   authorization_expires_at:
-    description: RFC3339 UTC expiry from the immediately preceding preflight.
+    description:
+      - RFC3339 UTC expiry from the immediately preceding preflight.
+      - Must be in the future and no more than 15 minutes from the module clock.
     type: str
     required: true
   timeout_seconds:
@@ -88,6 +90,7 @@ UTC_TIMESTAMP = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
 CONTROLLER_PROXY_INVENTORY = "/etc/ansible/hosts"
+MAX_AUTHORIZATION_HORIZON_SECONDS = 900
 
 
 def _vendor_send_request(connection, version, operation, payload):
@@ -98,15 +101,25 @@ def _vendor_send_request(connection, version, operation, payload):
     return send_request(connection, version, operation, payload)
 
 
-def _authorization_deadline(value):
+def _current_epoch():
+    return datetime.now(timezone.utc).timestamp()
+
+
+def _authorization_deadline(value, now_epoch=None):
     if not isinstance(value, str) or UTC_TIMESTAMP.fullmatch(value) is None:
         raise ValueError("authorization_expires_at must be an RFC3339 UTC timestamp")
     timestamp_format = (
         "%Y-%m-%dT%H:%M:%S.%fZ" if "." in value else "%Y-%m-%dT%H:%M:%SZ"
     )
-    return datetime.strptime(value, timestamp_format).replace(
+    deadline = datetime.strptime(value, timestamp_format).replace(
         tzinfo=timezone.utc
     ).timestamp()
+    current = _current_epoch() if now_epoch is None else now_epoch
+    if deadline <= current:
+        raise ValueError("authorization_expires_at has expired")
+    if deadline - current > MAX_AUTHORIZATION_HORIZON_SECONDS:
+        raise ValueError("authorization_expires_at exceeds 15 minutes")
+    return deadline
 
 
 def _require_direct_gaia_controller():
@@ -164,7 +177,10 @@ def run_module() -> None:
         )
     except (OverflowError, ValueError):
         module.fail_json(
-            msg="authorization_expires_at must be an RFC3339 UTC timestamp",
+            msg=(
+                "authorization_expires_at must be a current RFC3339 UTC "
+                "timestamp no more than 15 minutes in the future"
+            ),
             category="ACQUISITION_INVALID",
             changed=False,
         )

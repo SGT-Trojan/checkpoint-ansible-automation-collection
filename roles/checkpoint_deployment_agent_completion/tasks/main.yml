@@ -16,26 +16,41 @@
         ansible_host | default("localhost")
         in ["localhost", "127.0.0.1", "::1"]
       - checkpoint_deployment_agent_completion_first_update_plan is mapping
+      - checkpoint_deployment_agent_completion_first_update_plan | length > 0
       - >-
         checkpoint_deployment_agent_completion_first_reacquisition_plan
         is mapping
       - >-
+        checkpoint_deployment_agent_completion_first_reacquisition_plan
+        | length > 0
+      - >-
         checkpoint_deployment_agent_completion_first_target_states
         is sequence
       - >-
         checkpoint_deployment_agent_completion_first_target_states
         is not string
+      - >-
+        checkpoint_deployment_agent_completion_first_target_states
+        | length > 0
       - checkpoint_deployment_agent_completion_first_evidence is mapping
+      - checkpoint_deployment_agent_completion_first_evidence | length > 0
       - >-
         checkpoint_deployment_agent_completion_second_reacquisition_plan
         is mapping
       - >-
+        checkpoint_deployment_agent_completion_second_reacquisition_plan
+        | length > 0
+      - >-
         checkpoint_deployment_agent_completion_final_target_states
         is sequence
       - >-
         checkpoint_deployment_agent_completion_final_target_states
         is not string
+      - >-
+        checkpoint_deployment_agent_completion_final_target_states
+        | length > 0
       - checkpoint_deployment_agent_completion_final_evidence is mapping
+      - checkpoint_deployment_agent_completion_final_evidence | length > 0
     fail_msg: >-
       Completion attestation requires genuine localhost and structured
       two-member offline evidence inputs.

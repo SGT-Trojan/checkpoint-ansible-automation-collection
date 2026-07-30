@@ -5,6 +5,7 @@ __metaclass__ = type
 
 
 import importlib.util
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 from types import ModuleType
@@ -102,10 +103,14 @@ class DeploymentAgentAcquireModuleTests(unittest.TestCase):
             wrapper.Connection,
             wrapper.acquire,
             wrapper._require_direct_gaia_controller,
+            wrapper._current_epoch,
         )
         wrapper.AnsibleModule = FakeModule
         wrapper.Connection = lambda path: ("connection", path)
         wrapper._require_direct_gaia_controller = lambda: None
+        wrapper._current_epoch = lambda: datetime(
+            2026, 8, 28, 14, 0, tzinfo=timezone.utc
+        ).timestamp()
         FakeModule.params = {
             "member_address": "192.0.2.10",
             "version": None,
@@ -120,6 +125,7 @@ class DeploymentAgentAcquireModuleTests(unittest.TestCase):
             wrapper.Connection,
             wrapper.acquire,
             wrapper._require_direct_gaia_controller,
+            wrapper._current_epoch,
         ) = self.original
 
     def test_success_is_read_only_typed_and_address_bound(self) -> None:
@@ -174,6 +180,22 @@ class DeploymentAgentAcquireModuleTests(unittest.TestCase):
                     "timeout_seconds": 30,
                     "poll_interval_seconds": 2,
                 }
+
+    def test_expired_and_unbounded_authorization_fail_before_connection(self) -> None:
+        wrapper.Connection = lambda path: self.fail("must not connect")
+        for value in (
+            "2026-08-28T14:00:00Z",
+            "2026-08-28T14:15:01Z",
+            "2999-01-01T00:00:00Z",
+        ):
+            with self.subTest(value=value):
+                FakeModule.params["authorization_expires_at"] = value
+                with self.assertRaises(FailJson) as caught:
+                    wrapper.run_module()
+                self.assertEqual(
+                    caught.exception.payload["category"],
+                    "ACQUISITION_INVALID",
+                )
 
     def test_acquisition_failure_preserves_task_identity(self) -> None:
         def fail_acquire(**kwargs):

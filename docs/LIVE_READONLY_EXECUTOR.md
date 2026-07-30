@@ -1,14 +1,16 @@
 # Constrained Live Read-Only Executor
 
-The collection supplies two live read-only entry points:
+The collection supplies three live read-only entry points:
 
 - `playbooks/live_readonly_managed_discovery.yml` for Management API discovery.
 - `playbooks/live_readonly_package_state.yml` for installed-package inventory
   and restore-point free capacity on exactly two Gaia members.
+- `playbooks/live_readonly_deployment_agent.yml` for Deployment Agent status on
+  exactly two Gaia members.
 
-Both require Ansible check mode and a separate short-lived lease. The
-package-state executor runs members serially and rechecks its lease immediately
-before Gaia feature discovery and again before the fixed observation request.
+All three require Ansible check mode and a separate short-lived lease. The Gaia
+executors run members serially and recheck their lease immediately before Gaia
+feature discovery and again before the fixed observation request.
 The fixed operation rejects submissions and poll responses that cross the
 validated lease expiry.
 It cannot accept a command, script, path, package action, or mutation option.
@@ -125,7 +127,8 @@ checkpoint_package_state_live_lease:
 
 Certificate validation remains a required pending live test before production
 certification. Fix the endpoint certificate and return to `strict`; do not carry
-the acknowledgment into a strict lease.
+the acknowledgment into a strict lease. The completed lab observations used
+12-minute leases within the 15-minute ceiling.
 
 The role protects acquired package state with `no_log` and publishes
 `checkpoint_package_target_state` on each member. The executor does not write

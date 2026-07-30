@@ -67,8 +67,9 @@ Deployment Agent status or update module. The local
 normalization and the numeric build contract. Neither runs a command. Fixed
 acquisition is provided by `cp_automation_deployment_agent_acquire`.
 `checkpoint_deployment_agent_observation` binds that operation to a short
-two-member lease and direct Gaia inventory. Package binding and update remain
-pending.
+two-member lease and direct Gaia inventory. Offline package binding, update
+planning, reacquisition planning, reconciliation, evidence, and completion
+attestation are available. Live update execution remains pending.
 
 ## Safety Limits
 
@@ -103,6 +104,11 @@ path, arguments, or environment. Each sends one fixed internal operation
 through the Gaia `run-script` endpoint using the supported HTTPAPI helper,
 validates the exact asynchronous task and section envelope, and returns
 `changed: false`.
+
+These modules reuse the same Gaia `run-script` endpoint helper without exposing
+the generic `cp_gaia_run_script` module or accepting caller-supplied script
+content. The fixed operation and strict response parser are the read-only
+boundary.
 
 A calling role must first verify the `expert_api_runScript` feature record and
 bind the expected member address to its HTTPAPI inventory host. The API role

@@ -4,6 +4,7 @@ from __future__ import annotations
 __metaclass__ = type
 
 import importlib.util
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 from types import ModuleType
@@ -98,13 +99,17 @@ class PackageStateAcquireModuleTests(unittest.TestCase):
         self.original_acquire = wrapper.acquire
         self.original_send_request = wrapper._vendor_send_request
         self.original_require_direct = wrapper.require_direct_gaia_controller
+        self.original_current_epoch = wrapper._current_epoch
         wrapper.AnsibleModule = FakeAnsibleModule
         wrapper.Connection = FakeConnection
         wrapper.require_direct_gaia_controller = lambda: None
+        wrapper._current_epoch = lambda: datetime(
+            2026, 8, 28, 14, 0, tzinfo=timezone.utc
+        ).timestamp()
         FakeAnsibleModule.params = {
             "member_address": "192.0.2.10",
             "version": None,
-            "authorization_expires_at": "2099-08-28T14:05:00Z",
+            "authorization_expires_at": "2026-08-28T14:05:00Z",
             "timeout_seconds": 120,
             "poll_interval_seconds": 2,
             "max_output_bytes": 524288,
@@ -116,6 +121,7 @@ class PackageStateAcquireModuleTests(unittest.TestCase):
         wrapper.acquire = self.original_acquire
         wrapper._vendor_send_request = self.original_send_request
         wrapper.require_direct_gaia_controller = self.original_require_direct
+        wrapper._current_epoch = self.original_current_epoch
 
     def test_success_is_read_only_check_mode_safe_and_normalized(self) -> None:
         captured = {}
@@ -181,7 +187,7 @@ class PackageStateAcquireModuleTests(unittest.TestCase):
             FakeAnsibleModule.params = {
                 "member_address": "192.0.2.10",
                 "version": None,
-                "authorization_expires_at": "2099-08-28T14:05:00Z",
+                "authorization_expires_at": "2026-08-28T14:05:00Z",
                 "timeout_seconds": 120,
                 "poll_interval_seconds": 2,
                 "max_output_bytes": 524288,
@@ -212,7 +218,14 @@ class PackageStateAcquireModuleTests(unittest.TestCase):
 
     def test_invalid_authorization_expiry_fails_before_connection(self) -> None:
         wrapper.Connection = lambda path: self.fail("connection must not be created")
-        for value in ("", "2099-08-28T14:05:00+00:00", "not-a-time"):
+        for value in (
+            "",
+            "2026-08-28T14:05:00+00:00",
+            "not-a-time",
+            "2026-08-28T14:00:00Z",
+            "2026-08-28T14:15:01Z",
+            "2999-01-01T00:00:00Z",
+        ):
             FakeAnsibleModule.params["authorization_expires_at"] = value
             with self.subTest(value=value):
                 with self.assertRaises(FailJson) as caught:

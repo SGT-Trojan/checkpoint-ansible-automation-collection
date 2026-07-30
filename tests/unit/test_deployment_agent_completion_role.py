@@ -103,9 +103,12 @@ class DeploymentAgentCompletionRoleTests(unittest.TestCase):
             "completion_first_update_plan is mapping",
             "completion_first_target_states is sequence",
             "completion_first_target_states is not string",
+            "completion_first_target_states | length > 0",
             "completion_final_target_states is sequence",
             "completion_final_target_states is not string",
+            "completion_final_target_states | length > 0",
             "completion_final_evidence is mapping",
+            "completion_final_evidence | length > 0",
         ):
             self.assertIn(expected, conditions)
 
