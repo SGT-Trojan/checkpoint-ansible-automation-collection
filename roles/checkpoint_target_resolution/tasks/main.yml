@@ -1,0 +1,67 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Require complete dynamic-domain inventory and explicit targets
+  ansible.builtin.assert:
+    that:
+      - checkpoint_target_ips is defined
+      - checkpoint_target_ips is sequence
+      - checkpoint_target_ips is not string
+      - checkpoint_target_ips | length > 0
+      - groups.checkpoint_domain_sessions is defined
+      - groups.checkpoint_domain_sessions | length > 0
+      - checkpoint_expected_domain_count is defined
+      - >-
+        groups.checkpoint_domain_sessions | length
+        == checkpoint_expected_domain_count | int
+    fail_msg: >-
+      Target resolution requires explicit targets and every planned domain host.
+
+- name: Initialize complete cross-domain data
+  ansible.builtin.set_fact:
+    checkpoint_domain_data: []
+
+- name: Require every domain host to publish a complete result
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].checkpoint_domain_result is defined
+      - hostvars[item].checkpoint_domain_result is mapping
+      - hostvars[item].checkpoint_domain_result.domain is defined
+      - hostvars[item].checkpoint_domain_result.objects is defined
+      - hostvars[item].checkpoint_domain_result.cluster_details is defined
+    fail_msg: "Domain host {{ item }} did not publish a complete result."
+  loop: "{{ groups.checkpoint_domain_sessions }}"
+
+- name: Aggregate every isolated regular-domain result
+  ansible.builtin.set_fact:
+    checkpoint_domain_data: >-
+      {{ checkpoint_domain_data
+      + [hostvars[item].checkpoint_domain_result] }}
+  loop: "{{ groups.checkpoint_domain_sessions }}"
+
+- name: Reject incomplete domain result aggregation
+  ansible.builtin.assert:
+    that:
+      - >-
+        checkpoint_domain_data | length
+        == checkpoint_expected_domain_count | int
+      - >-
+        checkpoint_domain_data
+        | map(attribute="domain")
+        | map(attribute="name")
+        | unique
+        | length
+        == checkpoint_expected_domain_count | int
+    fail_msg: Domain result aggregation is incomplete or contains duplicate domains.
+
+- name: Resolve the requested managed cluster
+  sgt_trojan.checkpoint_automation.cp_automation_target_resolve:
+    target_ips: "{{ checkpoint_target_ips }}"
+    preferred_domain: "{{ checkpoint_preferred_domain | default('') }}"
+    domain_data: "{{ checkpoint_domain_data }}"
+  register: checkpoint_target_resolution_result
+
+- name: Publish the resolved managed cluster
+  ansible.builtin.set_fact:
+    checkpoint_resolved_target: "{{ checkpoint_target_resolution_result.resolved }}"

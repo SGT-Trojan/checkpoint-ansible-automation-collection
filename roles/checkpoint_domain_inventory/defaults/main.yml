@@ -1,0 +1,7 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+checkpoint_page_size: 500
+checkpoint_cluster_interface_limit: 500
+checkpoint_management_task_timeout: 600

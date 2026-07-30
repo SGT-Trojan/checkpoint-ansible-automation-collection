@@ -1,0 +1,26 @@
+---
+all:
+  vars:
+    checkpoint_api_sessions_group: checkpoint_api_sessions
+    checkpoint_mgmt_api_version: "1.9"
+    checkpoint_page_size: 500
+    checkpoint_domain_concurrency: 4
+    checkpoint_cluster_interface_limit: 500
+    checkpoint_management_task_timeout: 600
+  children:
+    checkpoint_api_sessions:
+      vars:
+        ansible_connection: ansible.netcommon.httpapi
+        ansible_network_os: check_point.mgmt.checkpoint
+        ansible_httpapi_use_ssl: true
+        ansible_httpapi_validate_certs: true
+        ansible_user: "{{ vault_checkpoint_username }}"
+        ansible_password: "{{ vault_checkpoint_password }}"
+      hosts:
+        mds_system: {}
+
+    checkpoint_mds_system:
+      hosts:
+        mds_system:
+          checkpoint_mds_api_host: 192.0.2.10
+          checkpoint_system_domain: System Data

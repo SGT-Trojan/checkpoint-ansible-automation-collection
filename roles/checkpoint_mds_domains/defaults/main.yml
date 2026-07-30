@@ -1,0 +1,5 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+checkpoint_page_size: 500

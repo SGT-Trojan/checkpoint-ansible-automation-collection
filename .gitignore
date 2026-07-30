@@ -1,0 +1,25 @@
+# Python and Ansible caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.tox/
+.venv/
+
+# Collection build output
+*.tar.gz
+build/
+dist/
+
+# Local inventory, credentials, and evidence
+inventory.local.yml
+lease.local.yml
+*.env
+runs/
+evidence/
+artifacts/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~

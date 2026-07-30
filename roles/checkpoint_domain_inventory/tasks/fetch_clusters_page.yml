@@ -1,0 +1,82 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Revalidate live authorization immediately before cluster facts
+  ansible.builtin.include_role:
+    name: sgt_trojan.checkpoint_automation.checkpoint_live_readonly_preflight
+  vars:
+    checkpoint_live_session_host: "{{ inventory_hostname }}"
+
+- name: Read a simple-cluster summary page
+  check_point.mgmt.cp_mgmt_simple_cluster_facts:
+    details_level: standard
+    limit: "{{ checkpoint_page_size | int }}"
+    offset: "{{ checkpoint_cluster_next_offset | int }}"
+    order:
+      - ASC: name
+    version: "{{ checkpoint_mgmt_api_version }}"
+  check_mode: true
+  register: checkpoint_cluster_page_result
+
+- name: Require the registered simple-cluster response
+  ansible.builtin.assert:
+    that:
+      - checkpoint_cluster_page_result.ansible_facts is defined
+      - checkpoint_cluster_page_result.ansible_facts.simple_clusters is defined
+      - checkpoint_cluster_page_result.ansible_facts.simple_clusters is mapping
+    fail_msg: >-
+      The simple-cluster facts module did not return ansible_facts.simple_clusters.
+
+- name: Select the registered simple-cluster response
+  ansible.builtin.set_fact:
+    checkpoint_cluster_page_response: >-
+      {{ checkpoint_cluster_page_result.ansible_facts.simple_clusters }}
+
+- name: Require one simple-cluster result list and a valid total
+  ansible.builtin.assert:
+    that:
+      - checkpoint_cluster_page_response.total is defined
+      - checkpoint_cluster_page_response.total | int >= 0
+      - >-
+        ((checkpoint_cluster_page_response.objects is defined) | int
+        + (checkpoint_cluster_page_response["simple-clusters"] is defined)
+        | int) == 1
+      - >-
+        (checkpoint_cluster_page_response.objects
+        | default(checkpoint_cluster_page_response["simple-clusters"]
+        | default([]))) is sequence
+    fail_msg: The simple-cluster page is missing a valid total or result list.
+
+- name: Count the simple-cluster rows actually returned
+  ansible.builtin.set_fact:
+    checkpoint_cluster_returned_rows: >-
+      {{ (checkpoint_cluster_page_response.objects
+      | default(checkpoint_cluster_page_response["simple-clusters"]
+      | default([]))) | length }}
+
+- name: Fail when simple-cluster pagination stops before total
+  ansible.builtin.assert:
+    that:
+      - >-
+        checkpoint_cluster_returned_rows | int > 0
+        or checkpoint_cluster_next_offset | int
+        >= checkpoint_cluster_page_response.total | int
+    fail_msg: >-
+      Simple-cluster pagination returned zero rows before the advertised total.
+
+- name: Record the registered simple-cluster page
+  ansible.builtin.set_fact:
+    checkpoint_cluster_pages: >-
+      {{ checkpoint_cluster_pages
+      + [{'offset': checkpoint_cluster_next_offset | int,
+          'response': checkpoint_cluster_page_response}] }}
+    checkpoint_cluster_next_offset: >-
+      {{ checkpoint_cluster_next_offset | int
+      + checkpoint_cluster_returned_rows | int }}
+
+- name: Read the next simple-cluster summary page
+  ansible.builtin.include_tasks: fetch_clusters_page.yml
+  when:
+    - checkpoint_cluster_next_offset | int
+      < checkpoint_cluster_page_response.total | int

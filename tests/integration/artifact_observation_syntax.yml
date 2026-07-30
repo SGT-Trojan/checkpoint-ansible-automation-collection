@@ -1,0 +1,8 @@
+---
+- name: Validate localhost artifact observation role syntax
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_artifact_observation
+      vars:
+        checkpoint_artifact_expected_path: /srv/checkpoint/packages/package.tgz

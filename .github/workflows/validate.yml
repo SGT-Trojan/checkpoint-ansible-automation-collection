@@ -1,0 +1,86 @@
+---
+name: Validate
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ansible_core: ["2.16.*", "2.21.*"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install "ansible-core==${{ matrix.ansible_core }}" PyYAML
+      - name: Verify constrained live read-only graph
+        run: python3 tests/utils/verify_live_readonly_graph.py --collection-root .
+      - name: Verify collection prohibited-action policy
+        run: python3 tests/utils/verify_collection_policy.py --collection-root .
+      - name: Run Ansible sanity tests
+        run: |
+          test_root="$(mktemp -d)"
+          mkdir -p "$test_root/ansible_collections/sgt_trojan"
+          cp -a . "$test_root/ansible_collections/sgt_trojan/checkpoint_automation"
+          cd "$test_root/ansible_collections/sgt_trojan/checkpoint_automation"
+          ansible-test sanity --python 3.12
+      - name: Validate collection playbooks
+        run: |
+          syntax_root="$(mktemp -d)"
+          mkdir -p "$syntax_root/ansible_collections/sgt_trojan"
+          cp -a . "$syntax_root/ansible_collections/sgt_trojan/checkpoint_automation"
+          ansible-galaxy collection install -r requirements.yml -p "$syntax_root"
+          cd "$syntax_root/ansible_collections/sgt_trojan/checkpoint_automation"
+          python3 tests/utils/verify_mgmt_check_mode.py \
+            --vendor-root "$syntax_root/ansible_collections/check_point/mgmt" \
+            --collection-root .
+          python3 tests/utils/verify_package_inventory_capability.py \
+            --vendor-root "$syntax_root/ansible_collections/check_point/mgmt"
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            playbooks/resolve_managed_cluster.yml --syntax-check \
+            -i examples/managed_target_inventory.yml \
+            -e vault_checkpoint_username=scope_probe \
+            -e vault_checkpoint_password=scope_probe
+          ansible-playbook tests/integration/discovery_variable_scope.yml \
+            -i examples/managed_target_inventory.yml \
+            -e vault_checkpoint_username=scope_probe \
+            -e vault_checkpoint_password=scope_probe
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/readiness_acquisition_syntax.yml --syntax-check \
+            -i examples/managed_target_inventory.yml
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/artifact_observation_syntax.yml --syntax-check \
+            -i examples/managed_target_inventory.yml
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            playbooks/live_readonly_managed_discovery.yml --syntax-check \
+            -i examples/managed_target_inventory.yml \
+            -e vault_checkpoint_username=scope_probe \
+            -e vault_checkpoint_password=scope_probe
+      - run: python3 -m unittest discover -s tests -v
+      - run: ansible-galaxy collection build .
+
+  python-310-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - run: python3 -m pip install PyYAML
+      - name: Probe Python 3.10 lease, IPv6, and graph compatibility
+        run: |
+          python3 -m unittest \
+            tests.unit.plugins.module_utils.test_live_preflight \
+            tests.unit.test_live_graph_verifier \
+            tests.unit.test_collection_policy_verifier
+          python3 tests/utils/verify_live_readonly_graph.py --collection-root .
+          python3 tests/utils/verify_collection_policy.py --collection-root .

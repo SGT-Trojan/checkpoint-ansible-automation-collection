@@ -1,0 +1,65 @@
+---
+- name: Validate inventory-bound readiness acquisition controls
+  ansible.builtin.assert:
+    that:
+      - checkpoint_readiness_member_name is string
+      - checkpoint_readiness_member_name | trim | length > 0
+      - ansible_host is defined
+      - ansible_host is string
+      - ansible_host | trim | length > 0
+      - ansible_connection in ['httpapi', 'ansible.netcommon.httpapi']
+      - ansible_network_os == 'check_point.gaia.checkpoint'
+      - ansible_httpapi_use_ssl | bool
+      - ansible_httpapi_validate_certs | bool
+    fail_msg: Readiness acquisition requires one TLS-verified Gaia HTTPAPI inventory host.
+
+- name: Read supported Gaia API features
+  check_point.gaia.cp_gaia_features_facts:
+    version: "{{ checkpoint_readiness_api_version | default(omit, true) }}"
+  register: checkpoint_readiness_gaia_features
+
+- name: Require the Gaia fixed-operation API feature
+  ansible.builtin.assert:
+    that:
+      - checkpoint_readiness_gaia_features.ansible_facts.features is sequence
+      - >-
+        'expert_api_runscript' in
+        (checkpoint_readiness_gaia_features.ansible_facts.features
+        | map(attribute='name') | map('lower') | list)
+    fail_msg: Gaia API does not expose expert_api_runScript.
+
+- name: Acquire fixed readiness evidence through Gaia HTTPAPI
+  sgt_trojan.checkpoint_automation.cp_automation_readiness_acquire:
+    member_address: "{{ ansible_host }}"
+    version: "{{ checkpoint_readiness_api_version | default(omit, true) }}"
+    timeout_seconds: "{{ checkpoint_readiness_timeout_seconds }}"
+    poll_interval_seconds: "{{ checkpoint_readiness_poll_interval_seconds }}"
+    max_output_bytes: "{{ checkpoint_readiness_max_output_bytes }}"
+  register: checkpoint_readiness_acquired
+  no_log: true
+  failed_when: false
+
+- name: Stop after a failed readiness acquisition
+  ansible.builtin.fail:
+    msg: >-
+      Readiness acquisition failed
+      (category={{ checkpoint_readiness_acquired.category | default('ACQUISITION_UNAVAILABLE') }},
+      task_id={{ checkpoint_readiness_acquired.task_id | default('not-submitted-or-unavailable') }}).
+  when: checkpoint_readiness_acquired.acquisition is not defined
+
+- name: Parse inventory-bound member readiness evidence
+  sgt_trojan.checkpoint_automation.cp_automation_cluster_observe:
+    name: "{{ checkpoint_readiness_member_name }}"
+    address: "{{ ansible_host }}"
+    cluster_state_output: "{{ checkpoint_readiness_acquired.acquisition.sections.cluster_state }}"
+    cluster_interfaces_output: "{{ checkpoint_readiness_acquired.acquisition.sections.cluster_interfaces }}"
+    icap_cpwd_output: "{{ checkpoint_readiness_acquired.acquisition.sections.icap_cpwd }}"
+    icap_listener_output: "{{ checkpoint_readiness_acquired.acquisition.sections.icap_listener }}"
+    icap_process_output: "{{ checkpoint_readiness_acquired.acquisition.sections.icap_process }}"
+  register: checkpoint_readiness_parsed
+  no_log: true
+
+- name: Publish the inventory-bound member observation
+  ansible.builtin.set_fact:
+    checkpoint_readiness_member_observation: "{{ checkpoint_readiness_parsed.observation }}"
+  no_log: true

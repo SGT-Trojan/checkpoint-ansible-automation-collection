@@ -1,0 +1,57 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Require cluster summary identity
+  ansible.builtin.assert:
+    that:
+      - checkpoint_cluster_summary is mapping
+      - checkpoint_cluster_summary.uid is defined
+      - checkpoint_cluster_summary.uid | string | trim | length > 0
+      - checkpoint_cluster_summary.name is defined
+      - checkpoint_cluster_summary.name | string | trim | length > 0
+    fail_msg: A simple-cluster summary is missing its UID or name.
+
+- name: Revalidate live authorization immediately before cluster detail
+  ansible.builtin.include_role:
+    name: sgt_trojan.checkpoint_automation.checkpoint_live_readonly_preflight
+  vars:
+    checkpoint_live_session_host: "{{ inventory_hostname }}"
+
+- name: Read full simple-cluster detail by name
+  check_point.mgmt.cp_mgmt_simple_cluster_facts:
+    name: "{{ checkpoint_cluster_summary.name }}"
+    details_level: full
+    limit_interfaces: "{{ checkpoint_cluster_interface_limit | int }}"
+    version: "{{ checkpoint_mgmt_api_version }}"
+  check_mode: true
+  register: checkpoint_cluster_detail_result
+
+- name: Require the registered full simple-cluster response
+  ansible.builtin.assert:
+    that:
+      - checkpoint_cluster_detail_result.ansible_facts is defined
+      - checkpoint_cluster_detail_result.ansible_facts.simple_cluster is defined
+      - checkpoint_cluster_detail_result.ansible_facts.simple_cluster is mapping
+    fail_msg: >-
+      The simple-cluster detail call did not return ansible_facts.simple_cluster.
+
+- name: Select the registered full simple-cluster response
+  ansible.builtin.set_fact:
+    checkpoint_cluster_detail_response: >-
+      {{ checkpoint_cluster_detail_result.ansible_facts.simple_cluster }}
+
+- name: Require full detail UID to match its summary UID exactly
+  ansible.builtin.assert:
+    that:
+      - checkpoint_cluster_detail_response.uid is defined
+      - checkpoint_cluster_detail_response.uid == checkpoint_cluster_summary.uid
+    fail_msg: >-
+      The full simple-cluster response does not match the requested summary UID.
+
+- name: Record the verified full simple-cluster response by UID
+  ansible.builtin.set_fact:
+    checkpoint_cluster_details: >-
+      {{ checkpoint_cluster_details
+      | combine({checkpoint_cluster_summary.uid:
+          checkpoint_cluster_detail_response}) }}

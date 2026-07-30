@@ -1,0 +1,80 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Revalidate live authorization immediately before domain facts
+  ansible.builtin.include_role:
+    name: sgt_trojan.checkpoint_automation.checkpoint_live_readonly_preflight
+  vars:
+    checkpoint_live_session_host: "{{ inventory_hostname }}"
+
+- name: Read a System Data domain page
+  check_point.mgmt.cp_mgmt_domain_facts:
+    details_level: full
+    limit: "{{ checkpoint_page_size | int }}"
+    offset: "{{ checkpoint_domain_next_offset | int }}"
+    order:
+      - ASC: name
+    version: "{{ checkpoint_mgmt_api_version }}"
+  check_mode: true
+  register: checkpoint_domain_page_result
+
+- name: Require the registered domain response
+  ansible.builtin.assert:
+    that:
+      - checkpoint_domain_page_result.ansible_facts is defined
+      - checkpoint_domain_page_result.ansible_facts.domains is defined
+      - checkpoint_domain_page_result.ansible_facts.domains is mapping
+    fail_msg: The domain facts module did not return ansible_facts.domains.
+
+- name: Select the registered domain response
+  ansible.builtin.set_fact:
+    checkpoint_domain_page_response: >-
+      {{ checkpoint_domain_page_result.ansible_facts.domains }}
+
+- name: Require one domain result list and a valid total
+  ansible.builtin.assert:
+    that:
+      - checkpoint_domain_page_response.total is defined
+      - checkpoint_domain_page_response.total | int >= 0
+      - >-
+        ((checkpoint_domain_page_response.objects is defined) | int
+        + (checkpoint_domain_page_response.domains is defined) | int) == 1
+      - >-
+        (checkpoint_domain_page_response.objects
+        | default(checkpoint_domain_page_response.domains | default([])))
+        is sequence
+    fail_msg: The domain page is missing a valid total or has an invalid result key.
+
+- name: Count the domain rows actually returned
+  ansible.builtin.set_fact:
+    checkpoint_domain_returned_rows: >-
+      {{ (checkpoint_domain_page_response.objects
+      | default(checkpoint_domain_page_response.domains | default([])))
+      | length }}
+
+- name: Fail when domain pagination stops before total
+  ansible.builtin.assert:
+    that:
+      - >-
+        checkpoint_domain_returned_rows | int > 0
+        or checkpoint_domain_next_offset | int
+        >= checkpoint_domain_page_response.total | int
+    fail_msg: >-
+      Domain pagination returned zero rows before the advertised total was reached.
+
+- name: Record the registered domain page
+  ansible.builtin.set_fact:
+    checkpoint_domain_pages: >-
+      {{ checkpoint_domain_pages
+      + [{'offset': checkpoint_domain_next_offset | int,
+          'response': checkpoint_domain_page_response}] }}
+    checkpoint_domain_next_offset: >-
+      {{ checkpoint_domain_next_offset | int
+      + checkpoint_domain_returned_rows | int }}
+
+- name: Read the next System Data domain page
+  ansible.builtin.include_tasks: fetch_page.yml
+  when:
+    - checkpoint_domain_next_offset | int
+      < checkpoint_domain_page_response.total | int

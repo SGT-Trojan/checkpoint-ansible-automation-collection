@@ -1,0 +1,81 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Revalidate live authorization before the System Data workflow
+  ansible.builtin.include_role:
+    name: sgt_trojan.checkpoint_automation.checkpoint_live_readonly_preflight
+  vars:
+    checkpoint_live_session_host: "{{ inventory_hostname }}"
+
+- name: Require revalidated authorization before System Data requests
+  ansible.builtin.assert:
+    that:
+      - hostvars.localhost.checkpoint_live_authorization is defined
+      - hostvars.localhost.checkpoint_live_authorization.authorized is sameas true
+      - >-
+        hostvars.localhost.checkpoint_live_authorization.operation
+        == 'managed_discovery'
+    fail_msg: Use the constrained live read-only executor before Management API requests.
+
+- name: Require an explicit System Data API session
+  ansible.builtin.assert:
+    that:
+      - checkpoint_mds_api_host is defined
+      - checkpoint_mds_api_host | string | trim | length > 0
+      - checkpoint_mgmt_api_version is defined
+      - checkpoint_mgmt_api_version | string | trim | length > 0
+      - checkpoint_system_domain is defined
+      - checkpoint_system_domain | string | trim | length > 0
+      - checkpoint_api_sessions_group is defined
+      - checkpoint_api_sessions_group | string | trim | length > 0
+      - checkpoint_api_sessions_group in groups
+      - inventory_hostname in groups[checkpoint_api_sessions_group]
+      - ansible_checkpoint_domain == checkpoint_system_domain
+      - ansible_connection == "ansible.netcommon.httpapi"
+      - ansible_network_os == "check_point.mgmt.checkpoint"
+      - ansible_httpapi_use_ssl | bool
+      - ansible_httpapi_validate_certs | bool
+      - checkpoint_page_size | int > 0
+      - checkpoint_page_size | int <= 500
+    fail_msg: >-
+      Configure the System Data alias and place it in the explicit
+      checkpoint_api_sessions group with inherited HTTPAPI connection settings.
+
+- name: Initialize System Data pagination
+  ansible.builtin.set_fact:
+    checkpoint_domain_pages: []
+    checkpoint_domain_next_offset: 0
+
+- name: Gather every System Data domain page
+  ansible.builtin.include_tasks: fetch_page.yml
+
+- name: Validate and merge every System Data domain page
+  sgt_trojan.checkpoint_automation.cp_automation_pages_merge:
+    pages: "{{ checkpoint_domain_pages }}"
+    result_keys:
+      - objects
+      - domains
+  register: checkpoint_domains_merged
+  delegate_to: localhost
+  become: false
+
+- name: Build isolated regular-domain session plan
+  sgt_trojan.checkpoint_automation.cp_automation_domain_plan:
+    domain_records: "{{ checkpoint_domains_merged.merged.objects }}"
+  register: checkpoint_domain_plan_result
+  delegate_to: localhost
+  become: false
+
+- name: Require a nonempty regular-domain session plan
+  ansible.builtin.assert:
+    that:
+      - checkpoint_domain_plan_result.plan is defined
+      - checkpoint_domain_plan_result.plan is sequence
+      - checkpoint_domain_plan_result.plan is not string
+      - checkpoint_domain_plan_result.plan | length > 0
+    fail_msg: System Data discovery did not produce any regular-domain sessions.
+
+- name: Publish the regular-domain session plan
+  ansible.builtin.set_fact:
+    checkpoint_domain_session_plan: "{{ checkpoint_domain_plan_result.plan }}"

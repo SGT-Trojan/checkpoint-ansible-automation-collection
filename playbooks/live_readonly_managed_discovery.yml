@@ -1,0 +1,10 @@
+---
+- name: Gate constrained live read-only managed discovery
+  hosts: localhost
+  gather_facts: false
+  any_errors_fatal: true
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_live_readonly_preflight
+
+- name: Run only the previously gated managed discovery workflow
+  ansible.builtin.import_playbook: resolve_managed_cluster.yml

@@ -1,0 +1,100 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Revalidate live authorization before the domain workflow
+  ansible.builtin.include_role:
+    name: sgt_trojan.checkpoint_automation.checkpoint_live_readonly_preflight
+  vars:
+    checkpoint_live_session_host: "{{ inventory_hostname }}"
+
+- name: Require revalidated authorization before domain requests
+  ansible.builtin.assert:
+    that:
+      - hostvars.localhost.checkpoint_live_authorization is defined
+      - hostvars.localhost.checkpoint_live_authorization.authorized is sameas true
+      - >-
+        hostvars.localhost.checkpoint_live_authorization.operation
+        == 'managed_discovery'
+    fail_msg: Use the constrained live read-only executor before Management API requests.
+
+- name: Require an isolated regular-domain API session
+  ansible.builtin.assert:
+    that:
+      - checkpoint_domain_record is defined
+      - checkpoint_domain_record is mapping
+      - checkpoint_domain_record.name is defined
+      - checkpoint_mgmt_api_version is defined
+      - checkpoint_mgmt_api_version | string | trim | length > 0
+      - checkpoint_api_sessions_group is defined
+      - checkpoint_api_sessions_group in groups
+      - inventory_hostname in groups[checkpoint_api_sessions_group]
+      - inventory_hostname in groups.checkpoint_domain_sessions
+      - ansible_checkpoint_domain == checkpoint_domain_record.name
+      - ansible_connection == "ansible.netcommon.httpapi"
+      - ansible_network_os == "check_point.mgmt.checkpoint"
+      - ansible_httpapi_use_ssl | bool
+      - ansible_httpapi_validate_certs | bool
+      - checkpoint_page_size | int > 0
+      - checkpoint_page_size | int <= 500
+      - checkpoint_cluster_interface_limit | int > 0
+      - checkpoint_cluster_interface_limit | int <= 500
+    fail_msg: >-
+      Each regular domain requires its own host alias and inherited HTTPAPI
+      settings from checkpoint_api_sessions.
+
+- name: Initialize regular-domain pagination
+  ansible.builtin.set_fact:
+    checkpoint_gateway_pages: []
+    checkpoint_gateway_next_offset: 0
+    checkpoint_cluster_pages: []
+    checkpoint_cluster_next_offset: 0
+    checkpoint_cluster_details: {}
+
+- name: Gather every gateway and server page
+  ansible.builtin.include_tasks: fetch_gateways_page.yml
+
+- name: Validate and merge every gateway and server page
+  sgt_trojan.checkpoint_automation.cp_automation_pages_merge:
+    pages: "{{ checkpoint_gateway_pages }}"
+    result_keys:
+      - objects
+      - gateways-and-servers
+  register: checkpoint_gateways_merged
+  delegate_to: localhost
+  become: false
+
+- name: Gather every simple-cluster summary page
+  ansible.builtin.include_tasks: fetch_clusters_page.yml
+
+- name: Validate and merge every simple-cluster summary page
+  sgt_trojan.checkpoint_automation.cp_automation_pages_merge:
+    pages: "{{ checkpoint_cluster_pages }}"
+    result_keys:
+      - objects
+      - simple-clusters
+  register: checkpoint_clusters_merged
+  delegate_to: localhost
+  become: false
+
+- name: Fetch and verify every simple-cluster detail
+  ansible.builtin.include_tasks: fetch_cluster_detail.yml
+  loop: "{{ checkpoint_clusters_merged.merged.objects }}"
+  loop_control:
+    loop_var: checkpoint_cluster_summary
+    label: "{{ checkpoint_cluster_summary.name | default('missing-name') }}"
+
+- name: Require one full detail record per cluster summary
+  ansible.builtin.assert:
+    that:
+      - >-
+        checkpoint_cluster_details | length
+        == checkpoint_clusters_merged.merged.objects | length
+    fail_msg: One or more simple-cluster detail records were not accepted.
+
+- name: Publish the complete regular-domain result
+  ansible.builtin.set_fact:
+    checkpoint_domain_result:
+      domain: "{{ checkpoint_domain_record }}"
+      objects: "{{ checkpoint_gateways_merged.merged.objects }}"
+      cluster_details: "{{ checkpoint_cluster_details }}"

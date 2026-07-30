@@ -1,0 +1,32 @@
+---
+namespace: sgt_trojan
+name: checkpoint_automation
+version: 0.1.0
+readme: README.md
+authors:
+  - SGT-Trojan contributors
+description: Reusable Ansible content for guarded Check Point firewall maintenance.
+license:
+  - Apache-2.0
+  - GPL-3.0-or-later
+tags:
+  - checkpoint
+  - firewall
+  - security
+  - automation
+  - networking
+dependencies:
+  check_point.mgmt: ">=6.9.0,<7.0.0"
+  check_point.gaia: ">=7.0.0,<8.0.0"
+repository: https://github.com/SGT-Trojan/checkpoint-ansible-automation-collection
+documentation: https://github.com/SGT-Trojan/checkpoint-ansible-automation-collection
+issues: https://github.com/SGT-Trojan/checkpoint-ansible-automation-collection/issues
+build_ignore:
+  - PROGRESS.md
+  - .github
+  - .venv
+  - artifacts
+  - build
+  - dist
+  - evidence
+  - runs

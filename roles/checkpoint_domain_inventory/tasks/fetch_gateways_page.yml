@@ -1,0 +1,84 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Revalidate live authorization immediately before gateway facts
+  ansible.builtin.include_role:
+    name: sgt_trojan.checkpoint_automation.checkpoint_live_readonly_preflight
+  vars:
+    checkpoint_live_session_host: "{{ inventory_hostname }}"
+
+- name: Read gateway and server page without check mode (read-only; vendor returns changed false)
+  check_point.mgmt.cp_mgmt_show_gateways_and_servers:
+    details_level: full
+    limit: "{{ checkpoint_page_size | int }}"
+    offset: "{{ checkpoint_gateway_next_offset | int }}"
+    order:
+      - ASC: name
+    wait_for_task: true
+    wait_for_task_timeout: "{{ checkpoint_management_task_timeout | int }}"
+    auto_publish_session: false
+    version: "{{ checkpoint_mgmt_api_version }}"
+  check_mode: false
+  register: checkpoint_gateway_page_result
+
+- name: Require the registered gateway response
+  ansible.builtin.assert:
+    that:
+      - checkpoint_gateway_page_result["show-gateways-and-servers"] is defined
+      - checkpoint_gateway_page_result["show-gateways-and-servers"] is mapping
+    fail_msg: >-
+      The gateway module did not return the show-gateways-and-servers result.
+
+- name: Select the registered gateway response
+  ansible.builtin.set_fact:
+    checkpoint_gateway_page_response: >-
+      {{ checkpoint_gateway_page_result["show-gateways-and-servers"] }}
+
+- name: Require one gateway result list and a valid total
+  ansible.builtin.assert:
+    that:
+      - checkpoint_gateway_page_response.total is defined
+      - checkpoint_gateway_page_response.total | int >= 0
+      - >-
+        ((checkpoint_gateway_page_response.objects is defined) | int
+        + (checkpoint_gateway_page_response["gateways-and-servers"] is defined)
+        | int) == 1
+      - >-
+        (checkpoint_gateway_page_response.objects
+        | default(checkpoint_gateway_page_response["gateways-and-servers"]
+        | default([]))) is sequence
+    fail_msg: The gateway page is missing a valid total or result list.
+
+- name: Count the gateway rows actually returned
+  ansible.builtin.set_fact:
+    checkpoint_gateway_returned_rows: >-
+      {{ (checkpoint_gateway_page_response.objects
+      | default(checkpoint_gateway_page_response["gateways-and-servers"]
+      | default([]))) | length }}
+
+- name: Fail when gateway pagination stops before total
+  ansible.builtin.assert:
+    that:
+      - >-
+        checkpoint_gateway_returned_rows | int > 0
+        or checkpoint_gateway_next_offset | int
+        >= checkpoint_gateway_page_response.total | int
+    fail_msg: >-
+      Gateway pagination returned zero rows before the advertised total was reached.
+
+- name: Record the registered gateway page
+  ansible.builtin.set_fact:
+    checkpoint_gateway_pages: >-
+      {{ checkpoint_gateway_pages
+      + [{'offset': checkpoint_gateway_next_offset | int,
+          'response': checkpoint_gateway_page_response}] }}
+    checkpoint_gateway_next_offset: >-
+      {{ checkpoint_gateway_next_offset | int
+      + checkpoint_gateway_returned_rows | int }}
+
+- name: Read the next gateway and server page
+  ansible.builtin.include_tasks: fetch_gateways_page.yml
+  when:
+    - checkpoint_gateway_next_offset | int
+      < checkpoint_gateway_page_response.total | int

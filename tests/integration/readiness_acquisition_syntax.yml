@@ -1,0 +1,6 @@
+---
+- name: Offline syntax contract for inventory-bound readiness acquisition
+  hosts: checkpoint_readiness_members
+  gather_facts: false
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_readiness_acquisition

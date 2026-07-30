@@ -1,0 +1,70 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Verify controls in the localhost play context
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Require shared discovery controls on localhost
+      ansible.builtin.assert:
+        that:
+          - checkpoint_api_sessions_group == "checkpoint_api_sessions"
+          - checkpoint_mgmt_api_version == "1.9"
+          - checkpoint_domain_concurrency | int == 4
+          - checkpoint_page_size | int == 500
+
+    - name: Create a representative dynamic domain-session host
+      ansible.builtin.add_host:
+        name: checkpoint_scope_probe
+        groups:
+          - checkpoint_domain_sessions
+          - "{{ checkpoint_api_sessions_group }}"
+        ansible_host: 192.0.2.10
+        ansible_checkpoint_domain: Example-Domain
+
+    - name: Override the coordinator concurrency for the batch probe
+      ansible.builtin.add_host:
+        name: "{{ groups.checkpoint_mds_system | first }}"
+        checkpoint_domain_concurrency: 1
+
+    - name: Create representative hosts for the batch probe
+      ansible.builtin.add_host:
+        name: "checkpoint_batch_probe_{{ item }}"
+        groups:
+          - checkpoint_batch_probe
+      loop:
+        - one
+        - two
+
+- name: Verify controls inherited by a dynamic domain-session host
+  hosts: checkpoint_scope_probe
+  gather_facts: false
+  vars:
+    ansible_connection: local
+  tasks:
+    - name: Require shared controls and secure session settings
+      ansible.builtin.assert:
+        that:
+          - checkpoint_api_sessions_group == "checkpoint_api_sessions"
+          - checkpoint_mgmt_api_version == "1.9"
+          - checkpoint_domain_concurrency | int == 4
+          - checkpoint_page_size | int == 500
+          - inventory_hostname in groups[checkpoint_api_sessions_group]
+          - ansible_network_os == "check_point.mgmt.checkpoint"
+          - ansible_httpapi_use_ssl | bool
+          - ansible_httpapi_validate_certs | bool
+
+- name: Verify coordinator-host concurrency controls play batching
+  hosts: checkpoint_batch_probe
+  gather_facts: false
+  serial: >-
+    {{ hostvars[groups.checkpoint_mds_system | first]
+    .checkpoint_domain_concurrency | default(4) }}
+  vars:
+    ansible_connection: local
+  tasks:
+    - name: Require one host in each configured batch
+      ansible.builtin.assert:
+        that:
+          - ansible_play_batch | length == 1

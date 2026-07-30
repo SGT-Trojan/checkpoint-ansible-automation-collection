@@ -1,0 +1,6 @@
+---
+collections:
+  - name: check_point.mgmt
+    version: "6.9.0"
+  - name: check_point.gaia
+    version: "7.0.0"

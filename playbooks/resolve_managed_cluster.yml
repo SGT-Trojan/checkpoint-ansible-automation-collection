@@ -1,0 +1,81 @@
+---
+# Copyright (c) 2026 SGT-Trojan contributors
+# SPDX-License-Identifier: Apache-2.0
+
+- name: Discover regular domains from the System Data session
+  pre_tasks:
+    - name: Require exactly one System Data inventory alias
+      ansible.builtin.assert:
+        that:
+          - groups.checkpoint_mds_system | length == 1
+        fail_msg: >-
+          Define exactly one checkpoint_mds_system host for deterministic
+          domain discovery.
+  hosts: checkpoint_mds_system
+  gather_facts: false
+  vars:
+    ansible_host: "{{ checkpoint_mds_api_host }}"
+    ansible_checkpoint_domain: "{{ checkpoint_system_domain }}"
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_mds_domains
+
+- name: Create one persistent HTTPAPI session host per regular domain
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Require the explicit inherited API-session group
+      ansible.builtin.assert:
+        that:
+          - checkpoint_api_sessions_group is defined
+          - checkpoint_api_sessions_group | string | trim | length > 0
+          - checkpoint_api_sessions_group in groups
+          - groups.checkpoint_mds_system | length == 1
+          - >-
+            hostvars[groups.checkpoint_mds_system | first]
+            .checkpoint_domain_session_plan is defined
+        fail_msg: >-
+          Define checkpoint_api_sessions_group and inherit connection settings
+          and credentials through that inventory group.
+
+    - name: Create an opaque isolated host for each planned regular domain
+      ansible.builtin.add_host:
+        name: "{{ item.session_name }}"
+        groups:
+          - checkpoint_domain_sessions
+          - "{{ checkpoint_api_sessions_group }}"
+        ansible_host: >-
+          {{ hostvars[groups.checkpoint_mds_system | first]
+          .checkpoint_mds_api_host }}
+        ansible_checkpoint_domain: "{{ item.name }}"
+        checkpoint_domain_record: "{{ item.domain }}"
+      loop: >-
+        {{ hostvars[groups.checkpoint_mds_system | first]
+        .checkpoint_domain_session_plan }}
+      loop_control:
+        label: "{{ item.session_name }}"
+
+    - name: Publish the expected isolated-domain host count
+      ansible.builtin.add_host:
+        name: checkpoint_discovery_coordinator
+        checkpoint_expected_domain_count: >-
+          {{ hostvars[groups.checkpoint_mds_system | first]
+          .checkpoint_domain_session_plan | length }}
+
+- name: Gather complete facts through each isolated regular-domain session
+  hosts: checkpoint_domain_sessions
+  gather_facts: false
+  serial: >-
+    {{ hostvars[groups.checkpoint_mds_system | first]
+    .checkpoint_domain_concurrency | default(4) }}
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_domain_inventory
+
+- name: Aggregate regular domains and resolve the requested cluster
+  hosts: localhost
+  gather_facts: false
+  vars:
+    checkpoint_expected_domain_count: >-
+      {{ hostvars.checkpoint_discovery_coordinator
+      .checkpoint_expected_domain_count }}
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_target_resolution

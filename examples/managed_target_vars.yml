@@ -1,0 +1,5 @@
+---
+checkpoint_target_ips:
+  - 198.51.100.10
+  - 198.51.100.11
+checkpoint_preferred_domain: Example-Domain

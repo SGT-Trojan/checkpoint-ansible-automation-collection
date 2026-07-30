@@ -1,0 +1,64 @@
+---
+- name: Require exactly one management coordinator before preflight
+  ansible.builtin.assert:
+    that:
+      - groups['checkpoint_mds_system'] | default([]) | length == 1
+      - checkpoint_target_ips is defined
+      - checkpoint_target_ips is sequence
+      - checkpoint_target_ips | length == 2
+      - checkpoint_live_session_host is string
+      - checkpoint_live_session_host in groups[checkpoint_api_sessions_group]
+      - >-
+        hostvars['localhost'].ansible_connection | default('local')
+        in ['local', 'ansible.builtin.local']
+      - >-
+        hostvars['localhost'].ansible_host | default('localhost')
+        in ['localhost', '127.0.0.1', '::1']
+      - >-
+        hostvars[groups['checkpoint_mds_system'][0]].checkpoint_mds_api_host
+        is defined
+    fail_msg: Live preflight requires one management coordinator and two target addresses.
+
+- name: Resolve safe credential-presence flags without copying values
+  ansible.builtin.set_fact:
+    checkpoint_live_credential_presence:
+      management_username: >-
+        {{
+          hostvars[checkpoint_live_session_host].ansible_user is defined
+          and
+          hostvars[checkpoint_live_session_host].ansible_user is string
+          and
+          hostvars[checkpoint_live_session_host].ansible_user | length > 0
+        }}
+      management_secret: >-
+        {{
+          hostvars[checkpoint_live_session_host].ansible_password is defined
+          and
+          hostvars[checkpoint_live_session_host].ansible_password is string
+          and
+          hostvars[checkpoint_live_session_host].ansible_password | length > 0
+        }}
+  no_log: true
+
+- name: Authorize the constrained live read-only executor
+  sgt_trojan.checkpoint_automation.cp_automation_live_preflight:
+    lease: "{{ checkpoint_live_lease }}"
+    management_target: >-
+      {{
+        hostvars[groups['checkpoint_mds_system'][0]].checkpoint_mds_api_host
+      }}
+    member_targets: "{{ checkpoint_target_ips }}"
+    credential_presence: "{{ checkpoint_live_credential_presence }}"
+    executor_check_mode: "{{ ansible_check_mode }}"
+  register: checkpoint_live_preflight_result
+  no_log: true
+  delegate_to: localhost
+  connection: ansible.builtin.local
+  become: false
+
+- name: Publish only sanitized live authorization
+  ansible.builtin.set_fact:
+    checkpoint_live_authorization: "{{ checkpoint_live_preflight_result.authorization }}"
+  delegate_to: localhost
+  connection: ansible.builtin.local
+  delegate_facts: true

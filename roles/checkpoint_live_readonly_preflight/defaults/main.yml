@@ -1,0 +1,3 @@
+---
+checkpoint_live_lease: {}
+checkpoint_live_session_host: "{{ groups['checkpoint_mds_system'][0] }}"
