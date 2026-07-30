@@ -17,6 +17,7 @@ perform a firewall update or upgrade.
 - Deployment Agent package binding and deterministic update planning
 - Exact-build reconciliation, reacquisition planning, and member sequencing
 - Evidence composition and final two-member completion attestation
+- Fail-closed lease, commit, plan, artifact, member, and TLS execution preflight
 - Synthetic completion and tamper-rejection integration tests
 - CI checks for supported vendor contracts and prohibited execution paths
 
@@ -26,7 +27,7 @@ exception. Strict certificate validation remains pending.
 
 ## Not Yet Available
 
-- Deployment Agent package staging or update execution
+- Deployment Agent package staging or fixed update transport
 - CDT candidate generation or execution
 - Management API package installation or upgrade
 - Direct CPUSE fallback
@@ -41,10 +42,11 @@ shell, command, raw, or script tasks for unsupported vendor APIs.
 
 ## Current Boundary
 
-The Deployment Agent chain currently ends at deterministic offline plans and
-completion evidence. A returned plan does not authorize a live update. Future
-execution requires a separately reviewed lease-bound executor, exact package
-and member revalidation, bounded polling, and post-update build verification.
+The Deployment Agent chain now includes a transport-free execution preflight.
+A returned plan or preflight authorization does not perform or independently
+authorize a live update. Future execution still requires separately reviewed
+artifact staging and fixed transport, repeated lease checks, bounded polling,
+and post-update build verification.
 
 See [Deployment Agent](docs/DEPLOYMENT_AGENT.md) for the module contracts,
 [Workflow parity](docs/PARITY_MATRIX.md) for full scope, and

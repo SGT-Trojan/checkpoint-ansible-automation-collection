@@ -268,7 +268,8 @@ successfully against both lab members with `lab_unverified`. The run proved the
 bounded flow, not a ready decision or strict certificate validation. Update
 work remains in separate review boundaries:
 
-1. add a separately reviewed, lease-bound executor and artifact staging;
+1. add artifact staging and the fixed update transport behind the execution
+   preflight;
 2. add bounded reconnect and separately authorized execution of the fixed
    reacquisition plan around exact-build reconciliation;
 3. run idempotent and older-to-current lab tests; and
@@ -279,6 +280,23 @@ The update path will use the Check Point operation:
 ```text
 installer agent install <approved-local-path>
 ```
+
+## Execution preflight
+
+`cp_automation_deployment_agent_execution_preflight` is the first bounded
+executor slice. It performs no filesystem, network, staging, or update action.
+It fails closed unless a short mutating lease binds the full independently
+approved candidate commit, plan and binding digests, exact two-member
+identity/address map, TLS mode, and selected member. It also requires a fresh
+artifact observation to match the plan's path, size, and SHA-256 exactly.
+
+The preflight rejects check mode because a check-mode result must never be
+mistaken for authority to mutate. It rejects no-change plans, expired or
+overlong leases, a different executing commit, peer selection, target drift,
+artifact drift, plan tampering, and inconsistent TLS controls. Success returns
+only sanitized digests and fingerprints. It does not make the later transport
+safe by itself; the fixed transport must repeat expiry and package
+revalidation immediately before its one mutation.
 
 The path will come from validated, staged artifact state. It will not be an
 arbitrary command option. The module will then reacquire status and require the
