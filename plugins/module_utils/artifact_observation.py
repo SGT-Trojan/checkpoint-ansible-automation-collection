@@ -20,12 +20,18 @@ from typing import Any
 CHUNK_SIZE = 1024 * 1024
 READ_CALL_FACTOR = 4
 READ_CALL_SLACK = 8
-REQUIRED_OPEN_FLAGS = ("O_DIRECTORY", "O_NOFOLLOW", "O_CLOEXEC", "O_NONBLOCK")
+REQUIRED_OPEN_FLAGS = (
+    "O_DIRECTORY",
+    "O_NOFOLLOW",
+    "O_CLOEXEC",
+    "O_NONBLOCK",
+    "O_PATH",
+)
 PLATFORM_SUPPORTED = all(hasattr(os, name) for name in REQUIRED_OPEN_FLAGS) and (
     os.open in getattr(os, "supports_dir_fd", set())
 )
 DIRECTORY_FLAGS = (
-    os.O_RDONLY
+    getattr(os, "O_PATH", 0)
     | getattr(os, "O_DIRECTORY", 0)
     | getattr(os, "O_NOFOLLOW", 0)
     | getattr(os, "O_CLOEXEC", 0)

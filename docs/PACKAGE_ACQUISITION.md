@@ -156,7 +156,7 @@ immediately before use and either validate, hash, and consume from the same
 retained descriptor, or create and consume an immutable/content-addressed
 staged copy in one bounded operation.
 
-The controller must provide POSIX/Linux-style `O_DIRECTORY`, `O_NOFOLLOW`,
+The controller must provide Linux-style `O_PATH`, `O_DIRECTORY`, `O_NOFOLLOW`,
 `O_CLOEXEC`, and `O_NONBLOCK` flags plus directory-relative `open`. Missing
 capabilities fail explicitly as `PLATFORM_UNSUPPORTED`; no-follow traversal
 is never weakened for portability.

@@ -83,6 +83,9 @@ jobs:
             tests/integration/deployment_agent_completion_syntax.yml \
             --syntax-check -i localhost, -c local
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/deployment_agent_artifact_staging_syntax.yml \
+            --syntax-check -i localhost, -c local
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
             tests/integration/deployment_agent_completion_composition.yml \
             -i localhost, -c local
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
@@ -112,8 +115,10 @@ jobs:
             tests.unit.test_package_state_live_graph \
             tests.unit.test_package_state_live_orchestration \
             tests.unit.plugins.module_utils.test_deployment_agent_live_preflight \
+            tests.unit.plugins.module_utils.test_deployment_agent_artifact_staging \
             tests.unit.plugins.module_utils.test_deployment_agent_acquisition \
             tests.unit.plugins.modules.test_deployment_agent_live_preflight_module \
+            tests.unit.plugins.modules.test_deployment_agent_artifact_stage_module \
             tests.unit.plugins.modules.test_deployment_agent_acquire_module \
             tests.unit.test_deployment_agent_live_graph \
             tests.unit.test_deployment_agent_live_orchestration \

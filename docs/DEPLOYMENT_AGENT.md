@@ -268,8 +268,8 @@ successfully against both lab members with `lab_unverified`. The run proved the
 bounded flow, not a ready decision or strict certificate validation. Update
 work remains in separate review boundaries:
 
-1. add artifact staging and the fixed update transport behind the execution
-   preflight;
+1. add fixed firewall transport for the staged artifact and the update behind
+   the execution preflight;
 2. add bounded reconnect and separately authorized execution of the fixed
    reacquisition plan around exact-build reconciliation;
 3. run idempotent and older-to-current lab tests; and
@@ -305,3 +305,33 @@ an unknown outcome that must be reconciled, not as permission to submit the
 update again.
 
 Deployment Agent update has not been live-certified in this collection.
+
+## Controller-local artifact staging
+
+`cp_automation_deployment_agent_artifact_stage` is the second bounded executor
+slice. It stages one exact package on the controller and does not contact a
+firewall or execute `installer agent install`.
+
+The module revalidates the complete update plan, opens its canonical source
+path without following symbolic links, hashes the retained descriptor, and
+runs the existing execution preflight before creating staged content. It
+rejects check mode, stale or substituted leases, commit or target drift,
+non-regular and oversized sources, unsafe staging paths, package-name drift,
+destination collisions, and source changes during copying. Lease expiry is
+checked again immediately before temporary-file creation and atomic
+publication.
+
+The staging root must already exist on genuine localhost, every component must
+be a real directory, and the final directory must be owner-controlled without
+group or other write access. The module publishes an owner-held read-only file
+named from the exact SHA-256 and package name. An exact existing file is
+unchanged; an inconsistent existing object fails closed and is never replaced.
+The `checkpoint_deployment_agent_artifact_staging` role pins this operation to
+a local connection and publishes only sanitized staging and authorization
+data.
+
+The staged path is controller-local input for a future separately reviewed
+firewall transport. `cp_gaia_put_file` is not used because its released
+contract accepts text content and is not sufficient for a bounded binary
+package. This slice adds no target transfer, update request, polling, or live
+authorization.

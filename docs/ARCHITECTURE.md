@@ -112,6 +112,20 @@ status. Its lease has a different operation name, so a package-state lease
 cannot authorize an agent request. The role returns status and a numeric
 readiness decision. It has no update action.
 
+## Deployment Agent artifact staging
+
+The staging role is localhost-only. Its module revalidates the exact update
+plan and source artifact, invokes the existing lease, commit, member, and TLS
+execution preflight, then copies from a retained no-follow descriptor into one
+pre-existing staging directory. The published filename is content-addressed,
+read-only, and never overwrites an inconsistent object. Expiry is checked
+again around the bounded filesystem mutation.
+
+This layer ends on the controller. It does not transfer a package, contact a
+firewall, invoke a Gaia operation, or execute an update. Those actions require
+separate review because the vendor file module's text-only contract is not a
+binary package transport.
+
 ## Live read-only boundary
 
 The live managed-discovery entry point begins with a localhost preflight. A

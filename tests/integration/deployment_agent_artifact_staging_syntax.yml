@@ -1,0 +1,6 @@
+---
+- name: Validate controller-local Deployment Agent artifact staging role syntax
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_deployment_agent_artifact_staging
