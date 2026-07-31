@@ -202,6 +202,18 @@ class DeploymentAgentPackageTransportTests(unittest.TestCase):
                 **values
             )
 
+    def transport_directory(self) -> Path:
+        collection_directory = (
+            self.home / deployment_agent_package_transport.TRANSFER_DIRECTORY
+        )
+        collection_directory.mkdir(mode=0o700)
+        package_directory = (
+            collection_directory
+            / deployment_agent_package_transport.PACKAGE_DIRECTORY
+        )
+        package_directory.mkdir(mode=0o700)
+        return package_directory
+
     def test_prepares_retained_exact_staged_source(self) -> None:
         source_fd, metadata, plan, authorization = self.prepare()
         try:
@@ -317,10 +329,11 @@ class DeploymentAgentPackageTransportTests(unittest.TestCase):
         self.assertFalse(published.exists())
 
     def test_destination_collision_is_never_replaced(self) -> None:
-        directory = (
-            self.home / ".checkpoint-automation" / "deployment-agent"
-        )
-        directory.mkdir(parents=True, mode=0o700)
+        previous_umask = os.umask(0o022)
+        try:
+            directory = self.transport_directory()
+        finally:
+            os.umask(previous_umask)
         collision = directory / (
             f"{self.plan['checksum_sha256']}-{self.plan['package_name']}"
         )
@@ -328,6 +341,16 @@ class DeploymentAgentPackageTransportTests(unittest.TestCase):
         self.assert_category(
             "DESTINATION_COLLISION", lambda: self.receive(CONTENT)
         )
+        self.assertEqual(collision.read_bytes(), b"hostile")
+
+    def test_unsafe_transport_parent_precedes_destination_collision(self) -> None:
+        directory = self.transport_directory()
+        directory.parent.chmod(0o755)
+        collision = directory / (
+            f"{self.plan['checksum_sha256']}-{self.plan['package_name']}"
+        )
+        collision.write_bytes(b"hostile")
+        self.assert_category("REMOTE_PATH_UNSAFE", lambda: self.receive(CONTENT))
         self.assertEqual(collision.read_bytes(), b"hostile")
 
 
