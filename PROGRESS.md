@@ -19,6 +19,7 @@ perform a firewall update or upgrade.
 - Evidence composition and final two-member completion attestation
 - Fail-closed lease, commit, plan, artifact, member, and TLS execution preflight
 - Preflight-gated controller-local content-addressed artifact staging
+- Lease-bound content-addressed package transport to one selected firewall
 - Synthetic completion and tamper-rejection integration tests
 - CI checks for supported vendor contracts and prohibited execution paths
 
@@ -28,7 +29,7 @@ exception. Strict certificate validation remains pending.
 
 ## Not Yet Available
 
-- Deployment Agent package transport to a firewall or fixed update transport
+- Deployment Agent update submission or fixed update transport
 - CDT candidate generation or execution
 - Management API package installation or upgrade
 - Direct CPUSE fallback
@@ -43,14 +44,14 @@ shell, command, raw, or script tasks for unsupported vendor APIs.
 
 ## Current Boundary
 
-The Deployment Agent chain now includes controller-local artifact staging
-behind the execution preflight. Staging revalidates the source on a retained
-descriptor, repeats lease expiry checks around its bounded filesystem
-mutation, and publishes a read-only content-addressed copy. It performs no
-firewall request. A returned plan, preflight authorization, or staged path does
-not perform or independently authorize a live update. Future execution still
-requires separately reviewed firewall transport, repeated lease checks,
-bounded polling, and post-update build verification.
+The Deployment Agent chain now includes controller-local artifact staging and
+lease-bound transfer to exactly one selected firewall. Transport retains and
+revalidates the staged source, requires strict SSH host-key checking, sends
+bounded chunks, and repeats the complete lease, commit, plan, member, offset,
+package, and expiry gates before every remote write. Only an exact final
+SHA-256 is published beneath a fixed owner-only directory. It does not submit
+`installer agent install`, poll a task, or reacquire build state. A returned
+transport path is evidence, not independent authority to run an update.
 
 See [Deployment Agent](docs/DEPLOYMENT_AGENT.md) for the module contracts,
 [Workflow parity](docs/PARITY_MATRIX.md) for full scope, and
@@ -59,6 +60,6 @@ limits.
 
 ## Next Milestone
 
-Add the reviewed lease-bound Deployment Agent executor, then prove no-change
-idempotence and an older-to-current update in the lab before beginning CDT
-execution work.
+Add separately reviewed update submission, bounded polling, and exact-build
+reacquisition, then prove no-change idempotence and an older-to-current update
+in the lab before beginning CDT execution work.

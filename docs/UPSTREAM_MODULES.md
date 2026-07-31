@@ -36,11 +36,11 @@ verified dependency graph can be reproduced exactly.
 | Gaia capabilities | `cp_gaia_api_versions_facts`, `cp_gaia_features_facts` | Availability gate before Gaia API use |
 | ClusterXL readiness acquisition | `cp_gaia_features_facts`, Gaia HTTPAPI `send_request` helper | Role-feature gate, typed fixed `run-script` payload, bounded task polling, and strict evidence validation |
 | Installed packages and restore capacity | `cp_gaia_features_facts`, Gaia HTTPAPI `send_request` helper | `checkpoint_package_state_acquisition` inventory binding, fixed `cp_automation_package_state_acquire` operation, and strict recognized-format/capacity parsing |
-| Deployment Agent | Gaia HTTPAPI `send_request` helper; no dedicated resource module in the pinned collections | Inventory-bound `checkpoint_deployment_agent_observation`, fixed `cp_automation_deployment_agent_acquire`, numeric build decision, offline package binding, update, reconnect, and reconciliation |
+| Deployment Agent | Gaia HTTPAPI `send_request` helper; no dedicated resource module in the pinned collections | Inventory-bound observation, fixed status acquisition, offline planning and reconciliation, controller staging, and lease-bound SSH package transport |
 | Gaia reboot | `cp_gaia_run_reboot`, `cp_gaia_task_facts` | Check-mode block, timeout, reconnect, and health samples |
 | Gaia file creation | `cp_gaia_put_file` | Text only; not used for binary Deployment Agent packages |
 
-Package transport remains pending. Before transport is introduced,
+Before package transport is used,
 `cp_automation_package_validate` provides the offline, structured contract for
 exact package identity, SHA-256, action semantics, declared target
 prerequisites, and major-upgrade restore capacity. It does not replace vendor
@@ -70,9 +70,12 @@ acquisition is provided by `cp_automation_deployment_agent_acquire`.
 two-member lease and direct Gaia inventory. Offline package binding, update
 planning, reacquisition planning, reconciliation, evidence, and completion
 attestation are available. Live update execution remains pending.
-Controller-local content-addressed artifact staging is available behind the
-execution preflight. The released `cp_gaia_put_file` text-content contract is
-not sufficient for this binary package, so firewall transport remains pending.
+Controller-local content-addressed artifact staging and lease-bound firewall
+transport are available behind the execution preflight. The released
+`cp_gaia_put_file` text-content contract is not sufficient for this binary
+package. The bounded transport therefore uses Ansible's SSH connection with
+host-key checking, fixed-size internal module chunks, repeated authorization,
+and a fixed owner-only remote destination. Update submission remains pending.
 
 ## Safety Limits
 
@@ -90,6 +93,11 @@ The released Gaia 7.0.0 operation helper does not reliably stop mutating
 operations in check mode even though some modules advertise check-mode support.
 Roles must hard-block `cp_gaia_run_reboot`, `cp_gaia_run_script`, and
 `cp_gaia_put_file` during `--check`.
+
+The Deployment Agent package transport also hard-blocks check mode. It accepts
+no caller-selected remote path or chunk controls, requires effective SSH
+host-key checking, and revalidates its mutation lease before every bounded
+remote write. It does not use `cp_gaia_put_file`, whose released input is text.
 
 Gaia task polling has a fixed iteration limit. Package and upgrade workflows
 need a custom bounded poller with a caller-selected timeout and no automatic
