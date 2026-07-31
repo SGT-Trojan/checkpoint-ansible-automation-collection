@@ -86,6 +86,9 @@ jobs:
             tests/integration/deployment_agent_artifact_staging_syntax.yml \
             --syntax-check -i localhost, -c local
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
+            tests/integration/deployment_agent_package_transport_syntax.yml \
+            --syntax-check -i localhost,
+          ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \
             tests/integration/deployment_agent_completion_composition.yml \
             -i localhost, -c local
           ANSIBLE_COLLECTIONS_PATH="$syntax_root" ansible-playbook \

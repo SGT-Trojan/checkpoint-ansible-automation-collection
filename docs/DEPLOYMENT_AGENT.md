@@ -268,8 +268,8 @@ successfully against both lab members with `lab_unverified`. The run proved the
 bounded flow, not a ready decision or strict certificate validation. Update
 work remains in separate review boundaries:
 
-1. add fixed firewall transport for the staged artifact and the update behind
-   the execution preflight;
+1. add separately reviewed fixed update submission and bounded task polling
+   for the transported artifact behind the execution preflight;
 2. add bounded reconnect and separately authorized execution of the fixed
    reacquisition plan around exact-build reconciliation;
 3. run idempotent and older-to-current lab tests; and
@@ -330,8 +330,36 @@ The `checkpoint_deployment_agent_artifact_staging` role pins this operation to
 a local connection and publishes only sanitized staging and authorization
 data.
 
-The staged path is controller-local input for a future separately reviewed
-firewall transport. `cp_gaia_put_file` is not used because its released
-contract accepts text content and is not sufficient for a bounded binary
-package. This slice adds no target transfer, update request, polling, or live
-authorization.
+The staged path is controller-local input for the separately bounded firewall
+transport. `cp_gaia_put_file` is not used because its released contract accepts
+text content and is not sufficient for a bounded binary package. Staging itself
+still adds no target transfer, update request, polling, or live authorization.
+
+## Firewall package transport
+
+`cp_automation_deployment_agent_package_transport` transfers one exact staged
+package to only the selected member in the existing execution lease. Its action
+plugin requires the Ansible SSH connection and effective host-key checking,
+then binds the connected IP and `inventory_hostname` to the lease and plan. The
+public action accepts no remote path, transfer identifier, chunk, offset, or
+completion controls.
+
+The action accepts packages no larger than 128 MiB, retains a no-follow
+descriptor for the owner-held read-only staged file, and streams at most
+256 KiB per internal remote module call. Before every remote write, the module
+repeats the complete lease, candidate commit, plan, binding, selected member,
+package, SSH host-key, and expiry validation. It also requires the exact next
+offset, so duplicated, omitted, reordered, or replayed chunks fail closed.
+
+Incomplete content is mode `0600` and named only from the lease beneath
+`$HOME/.checkpoint-automation/deployment-agent`, where both collection-owned
+directories are mode `0700`. The final chunk causes a full remote SHA-256
+revalidation. Only then is the package published atomically as mode `0400`
+under its checksum and approved package name. An exact existing published file
+is unchanged; a collision is never replaced.
+
+The `checkpoint_deployment_agent_package_transport` role exposes only the
+sanitized firewall-local package and authorization evidence. The transport
+does not invoke `installer agent install`, submit or poll a Gaia task, acquire
+status, or independently authorize later execution. It has hostile offline
+coverage but has not been run against a firewall.

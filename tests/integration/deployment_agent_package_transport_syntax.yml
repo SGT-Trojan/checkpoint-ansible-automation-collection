@@ -1,0 +1,7 @@
+---
+- name: Validate Deployment Agent package transport role composition
+  hosts: all
+  gather_facts: false
+  connection: ssh
+  roles:
+    - role: sgt_trojan.checkpoint_automation.checkpoint_deployment_agent_package_transport

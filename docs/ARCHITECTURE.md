@@ -122,9 +122,31 @@ read-only, and never overwrites an inconsistent object. Expiry is checked
 again around the bounded filesystem mutation.
 
 This layer ends on the controller. It does not transfer a package, contact a
-firewall, invoke a Gaia operation, or execute an update. Those actions require
-separate review because the vendor file module's text-only contract is not a
+firewall, invoke a Gaia operation, or execute an update. Transport remains a
+separate boundary because the vendor file module's text-only contract is not a
 binary package transport.
+
+## Deployment Agent package transport
+
+The package transport action requires Ansible's SSH connection with effective
+host-key checking enabled. It binds the connected IP and inventory identity to
+the selected member in the execution lease, opens the controller-staged file
+without following symbolic links, retains that descriptor, and validates its
+content-addressed identity before reading it.
+
+The action accepts packages no larger than 128 MiB and sends at most 256 KiB of
+canonical Base64 content per internal module call. Every remote call
+independently revalidates the complete lease, candidate commit, plan, selected
+member, package evidence, exact byte offset, TLS intent, SSH host-key state,
+and expiry. Incomplete content remains an owner-only lease-named temporary
+file. The final call hashes the full remote file and atomically publishes a
+read-only content-addressed package beneath a fixed owner-only directory in the
+connected account home.
+
+No caller can supply a remote path, transfer identifier, chunk, offset, or
+completion marker through the public action contract. This layer performs no
+Gaia update request, task polling, status acquisition, or package execution.
+The firewall-local path is evidence for a separately reviewed executor.
 
 ## Live read-only boundary
 

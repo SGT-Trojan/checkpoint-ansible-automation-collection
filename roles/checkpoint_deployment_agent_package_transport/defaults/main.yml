@@ -1,0 +1,8 @@
+---
+checkpoint_deployment_agent_transport_lease: {}
+checkpoint_deployment_agent_transport_update_plan: {}
+checkpoint_deployment_agent_transport_staging: {}
+checkpoint_deployment_agent_transport_member_targets: []
+checkpoint_deployment_agent_transport_runtime_commit: ""
+checkpoint_deployment_agent_transport_tls_validation_enabled: true
+checkpoint_deployment_agent_transport_lab_tls_exception_acknowledged: false
